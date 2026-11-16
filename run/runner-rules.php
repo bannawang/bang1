@@ -84,19 +84,17 @@ function bang1_runner_registration_member_count(string $csv): int {
 }
 
 /**
- * A runner may be removed immediately once there is no current official
- * result or check-in. A multi-athlete registration must be edited separately
- * so deleting one student never silently cancels their teammates' entry.
- * Historical results reside in different tables and are never changed here.
+ * A runner may be removed immediately when there is no current official
+ * result. For a single-athlete entry, a check-in without a result may be
+ * withdrawn in the same transaction as that entry. A multi-athlete entry
+ * must be edited separately to protect teammates. Historical results
+ * are stored separately and must never be changed here.
  */
 function bang1_runner_delete_block_reason(
     bool $hasCurrentResult, bool $hasCheckin, int $registeredAthletes
 ): ?string {
     if ($hasCurrentResult) {
         return 'ไม่สามารถลบนักวิ่งได้ เนื่องจากรายการแข่งขันปัจจุบันมีการบันทึกผลแล้ว';
-    }
-    if ($hasCheckin) {
-        return 'ไม่สามารถลบนักวิ่งได้ เนื่องจากมีการเช็กชื่อรายงานตัวในรายการแข่งขันปัจจุบันแล้ว';
     }
     if ($registeredAthletes > 1) {
         return 'นักวิ่งมีชื่ออยู่ในใบสมัครที่มีเพื่อนร่วมทีม กรุณาแก้ไขหรือลบใบสมัครรายการนั้นก่อน เพื่อไม่ให้กระทบนักวิ่งคนอื่น';
