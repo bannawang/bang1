@@ -6362,6 +6362,38 @@ function escSchedule(s) {
 
 let scheduleEventsData = [];   // เก็บข้อมูลที่แสดงในตารางสำหรับพิมพ์สูจิบัตร
 
+// The expanded participants and the headline number must use the same
+// registration snapshot. Count distinct schools, not athletes/relay members.
+function bang1CountScheduleSchools(entries) {
+  const names = new Set();
+  (Array.isArray(entries) ? entries : []).forEach(entry => {
+    const name = String(entry?.SchoolName || '').trim();
+    if (name) names.add(name.replace(/\s+/g, ' '));
+  });
+  return names.size;
+}
+function bang1RegisteredSchoolCount(row) {
+  if (Array.isArray(row?.entries)) return bang1CountScheduleSchools(row.entries);
+  const count = Number(row?.RegisteredTeams ?? 0);
+  return Number.isFinite(count) && count >= 0 ? count : 0;
+}
+function bang1UpdateScheduleSchoolCount(tr, entries) {
+  if (!tr || !tr.isConnected) return;
+  const row = scheduleEventsData.find(x => String(x.EventID) === tr.dataset.eventId);
+  if (!row) return;
+  const count = bang1CountScheduleSchools(entries);
+  // Keep the program printout and the visible table in sync with the same
+  // details response, even if the table was loaded before a new registration.
+  row.entries = entries;
+  row.RegisteredTeams = count;
+  const isWaitingFinal = String(row.Remark || '').trim() === 'คัดเลือก'
+    && String(row.Stage || '').trim() === 'ชิงชนะเลิศ';
+  if (!isWaitingFinal && tr.children[3]) {
+    tr.children[3].textContent = String(count);
+    row._displayTeamText = String(count);
+  }
+}
+
 function loadSchedule() {
   setTableLoading('scheduleTableWrap', true);
 
@@ -6378,7 +6410,7 @@ function loadSchedule() {
       // Actual registrations are authoritative even when the original plan
       // listed zero participating teams.
       rows = rows.filter(function (r) {
-        if (Number(r.RegisteredTeams || 0) > 0) return true;
+        if (bang1RegisteredSchoolCount(r) > 0) return true;
         const planned = r.TeamCount;
         return planned === null || planned === undefined ||
           planned === '' || Number(planned) !== 0;
@@ -6406,8 +6438,8 @@ function loadSchedule() {
 
         const roundF   = (r.Remark || '').toString().trim(); // F
         const stageK   = (r.Stage  || '').toString().trim(); // K
-        const registered = Number(r.RegisteredTeams ?? 0);
-        const actualTeams = Number.isFinite(registered) ? registered : 0;
+        const actualTeams = bang1RegisteredSchoolCount(r);
+        r.RegisteredTeams = actualTeams;
 
         // Both the detail rows and the team count come from real registrations.
         let teamText = '';
@@ -6521,7 +6553,8 @@ function onScheduleRowClick(e) {
     .withSuccessHandler(function (list) {
       // ลบ loading ออกก่อน
       removeDetailRows();
-      list = list || [];
+      list = Array.isArray(list) ? list : [];
+      bang1UpdateScheduleSchoolCount(tr, list);
 
       if (!list.length) {
         const emptyTr = document.createElement('tr');
@@ -6777,7 +6810,7 @@ function printScheduleProgram() {
 
   // Show active entrants even where original fixture rows had zero planned teams.
   const events = scheduleEventsData.filter(ev => {
-    if (Number(ev.RegisteredTeams || 0) > 0) return true;
+    if (bang1RegisteredSchoolCount(ev) > 0) return true;
     const planned = ev.TeamCount;
     return planned === null || planned === undefined ||
       planned === '' || Number(planned) !== 0;
@@ -6812,7 +6845,7 @@ function printScheduleProgram() {
         });
 
         // Counts and names refer to the same registration data.
-        const teamCount = Number(ev.RegisteredTeams || 0);
+        const teamCount = bang1RegisteredSchoolCount(ev);
 
         programItems.push({
           index: idx + 1,
