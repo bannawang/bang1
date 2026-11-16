@@ -192,29 +192,45 @@ function bang1_schedule_preview(array $fixtures,array $registrations):array {
             $fixtures[$rowId]['SlotStatus']=$drawn?'drawn':'preview';
         }
     }
-    // Older first registration gets priority. Same race stays together
-    // (heats in numeric order, reserved final after preliminary heats).
+    // The competition program's configured source_order is authoritative.
+    // Sign-up time is a FALLBACK only for fixtures without a preset order;
+    // new registrations must never move a preset event ahead of another.
     usort($fixtures,static function(array $a,array $b):int {
-        $aHas=(int)($a['RegistrationCount']??0)>0;
-        $bHas=(int)($b['RegistrationCount']??0)>0;
-        if($aHas!==$bHas)return $aHas?-1:1;
-        if($aHas){
-            $aTime=trim((string)($a['FirstRegistrationAt']??''))?:'9999-12-31 23:59:59';
-            $bTime=trim((string)($b['FirstRegistrationAt']??''))?:'9999-12-31 23:59:59';
-            $dateCmp=strcmp($aTime,$bTime);
-            if($dateCmp!==0)return $dateCmp;
-            $idCmp=(int)($a['FirstRegistrationId']??0) <=>
-                (int)($b['FirstRegistrationId']??0);
-            if($idCmp!==0)return $idCmp;
-            if(($a['GroupKey']??'')===($b['GroupKey']??'')){
-                $finalA=($a['SlotStatus']??'')==='waiting';
-                $finalB=($b['SlotStatus']??'')==='waiting';
-                if($finalA!==$finalB)return $finalA?1:-1;
-                return (int)($a['Heat']??0)<=>(int)($b['Heat']??0);
+        $orderA=$a['SourceOrder']??null;
+        $orderB=$b['SourceOrder']??null;
+        $hasA=is_numeric($orderA) && (int)$orderA>0;
+        $hasB=is_numeric($orderB) && (int)$orderB>0;
+        if($hasA && $hasB){
+            $byOrder=(int)$orderA<=>(int)$orderB;
+            if($byOrder!==0)return $byOrder;
+        }elseif($hasA!==$hasB){
+            return $hasA?-1:1;
+        }
+        // Within one configured item, preliminary heats stay in heat order.
+        // A reserved final remains in its own configured source_order slot.
+        if(($a['GroupKey']??'')===($b['GroupKey']??'')){
+            $aFinal=($a['SlotStatus']??'')==='waiting';
+            $bFinal=($b['SlotStatus']??'')==='waiting';
+            if($aFinal!==$bFinal)return $aFinal?1:-1;
+            $heatOrder=(int)($a['Heat']??0)<=>(int)($b['Heat']??0);
+            if($heatOrder!==0)return $heatOrder;
+        }
+        // Use signup priority only when BOTH items have no explicit order.
+        if(!$hasA && !$hasB){
+            $aHas=(int)($a['RegistrationCount']??0)>0;
+            $bHas=(int)($b['RegistrationCount']??0)>0;
+            if($aHas!==$bHas)return $aHas?-1:1;
+            if($aHas){
+                $aTime=trim((string)($a['FirstRegistrationAt']??''))?:'9999-12-31 23:59:59';
+                $bTime=trim((string)($b['FirstRegistrationAt']??''))?:'9999-12-31 23:59:59';
+                $byTime=strcmp($aTime,$bTime);
+                if($byTime!==0)return $byTime;
+                $byFirstId=(int)($a['FirstRegistrationId']??0)
+                    <=>(int)($b['FirstRegistrationId']??0);
+                if($byFirstId!==0)return $byFirstId;
             }
         }
-        return (int)($a['SourceOrder']??$a['EventID']??0)
-            <=>(int)($b['SourceOrder']??$b['EventID']??0);
+        return (int)($a['EventID']??0)<=>(int)($b['EventID']??0);
     });
     return [
         'rows'=>$fixtures,
