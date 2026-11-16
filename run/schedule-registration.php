@@ -19,9 +19,9 @@ function bang1_schedule_same_optional_field(mixed $a, mixed $b): bool {
     return $left==='' || $right==='' || $left===$right;
 }
 function bang1_schedule_is_final(array $event): bool {
-    return trim((string)($event['Remark']??''))==='ชิงชนะเลิศ'
-        || trim((string)($event['HeatPlan']??''))==='ชิง'
-        || trim((string)($event['Stage']??''))==='ชิงชนะเลิศ';
+    return trim((string)($event['HeatPlan']??''))==='ชิง'
+        || (trim((string)($event['Remark']??''))==='คัดเลือก'
+            && trim((string)($event['Stage']??''))==='ชิงชนะเลิศ');
 }
 function bang1_schedule_resolve(array $events, array $registrations): array {
     $map=[];
