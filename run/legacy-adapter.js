@@ -71,7 +71,9 @@
      // An imported program may contain several preliminary heat slots plus a later
      // final for the same race. Teachers register once per competition, not per slot.
      const chosen=new Map();
-     const finalSlot=r=>r.Remark==='ชิงชนะเลิศ'||r.HeatPlan==='ชิง';
+     const finalSlot=r=>String(r.Remark||'').trim()==='ชิงชนะเลิศ'
+       ||String(r.HeatPlan||'').trim()==='ชิง'
+       ||String(r.Stage||'').trim()==='ชิงชนะเลิศ';
      for(const e of toList(ev)){
        const k=key(e),prior=chosen.get(k);
        if(!prior||(finalSlot(prior)&&!finalSlot(e)))chosen.set(k,e);
