@@ -2,7 +2,7 @@
 <html>
 <head>
   <!-- Original Apps Script UI preserved; only the backend transport is changed. -->
-  <script src="legacy-adapter.js?v=20261116-qualifier-final-rounds"></script>
+  <script src="legacy-adapter.js?v=20261116-provisional-heat-order"></script>
   <script src="runner-eligibility.js?v=20261114-age7-primary-under8"></script>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
@@ -1722,6 +1722,7 @@ document.addEventListener('DOMContentLoaded',function(){
   <h1>รายการจัดแข่งขัน</h1>
   <div class="subtitle">แสดงรายการแข่งขันและรายชื่อโรงเรียนจากใบสมัครในระบบปัจจุบัน (นักวิ่งที่ยังไม่จัดฮีทก็แสดงได้)</div>
   <div class="card">
+    <div id="bang1ScheduleSummary" class="bang1-schedule-summary" aria-live="polite">กำลังโหลดสรุปการสมัคร...</div>
     <div class="card-header" id="bang1ScheduleHeader">
       <div class="card-title">ตารางรายการแข่งขัน (รายการจะสมบูรณ์หลังการรับสมัครเสร็จสิ้น)</div>
       <div class="btn-row"><div class="table-header-right" id="bang1ScheduleActionRow">
@@ -1730,13 +1731,17 @@ document.addEventListener('DOMContentLoaded',function(){
       </div></div>
     </div>
     <div class="table-wrap" id="scheduleTableWrap"><div class="table-scroller"><table>
-      <thead><tr><th>EventID</th><th>รายการวิ่ง</th><th>ฮีท</th><th>จำนวนโรงเรียนที่แข่งขัน</th><th>หมายเหตุ</th></tr></thead>
-      <tbody id="scheduleTableBody"><tr><td colspan="5">ยังไม่มีข้อมูล</td></tr></tbody>
+      <thead><tr><th>EventID</th><th>รายการวิ่ง</th><th>ฮีท</th><th>จำนวนโรงเรียนที่แข่งขัน</th><th>หมายเหตุ</th><th>สถานะฮีท/ลู่</th></tr></thead>
+      <tbody id="scheduleTableBody"><tr><td colspan="6">ยังไม่มีข้อมูล</td></tr></tbody>
     </table></div></div>
   </div>
 </section>
 <style>
 #page-schedule .table-wrap{position:relative}
+#bang1ScheduleSummary{margin:12px 16px 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#bfdbfe;font-size:.9rem}
+#bang1ScheduleSummary .schedule-stat{padding:7px 11px;border:1px solid rgba(96,165,250,.3);border-radius:9px;background:rgba(30,58,138,.35)}
+#bang1ScheduleSummary .schedule-explainer{font-size:.78rem;color:#fbbf24}
+#page-schedule .schedule-round-state{font-size:.78rem;color:#fde68a;white-space:nowrap}
 #page-schedule .table-wrap .table-scroller{max-height:420px;overflow:auto}
 #page-schedule table thead th{position:sticky;top:0;background:#020617;z-index:1}
 #page-schedule table{width:100%;border-collapse:collapse}
@@ -6398,6 +6403,8 @@ function bang1UpdateScheduleSchoolCount(tr, entries) {
 
 function loadSchedule() {
   setTableLoading('scheduleTableWrap', true);
+  const summaryEl = document.getElementById('bang1ScheduleSummary');
+  if(summaryEl)summaryEl.textContent='กำลังโหลดสรุปการสมัคร...';
 
   google.script.run
     .withSuccessHandler(function (rows) {
@@ -6407,7 +6414,16 @@ function loadSchedule() {
       if (!tbody) return;
 
       tbody.innerHTML = '';
-      rows = rows || [];
+      const summary = rows?.summary || {};
+      if(summaryEl){
+        const formatCount = value => Number(value || 0).toLocaleString('th-TH');
+        summaryEl.innerHTML =
+          '<span class="schedule-stat">ใบสมัคร <strong>'+formatCount(summary.registrationCount)+'</strong> รายการ</span>'+
+          '<span class="schedule-stat">รายการแข่งขันที่มีผู้สมัคร <strong>'+formatCount(summary.competitionCount)+'</strong> รายการ</span>'+
+          '<span class="schedule-stat">โรงเรียนที่สมัคร <strong>'+formatCount(summary.schoolCount)+'</strong> แห่ง</span>'+
+          '<span class="schedule-explainer">ฮีทและลู่เบื้องต้นยังไม่เป็นทางการ จนกว่าจะสุ่มจัดฮีทและลู่</span>';
+      }
+      rows = Array.isArray(rows) ? rows : [];
 
       // Actual registrations are authoritative even when the original plan
       // listed zero participating teams.
@@ -6419,7 +6435,7 @@ function loadSchedule() {
       });
 
       if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="10">ยังไม่มีข้อมูลรายการวิ่ง</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6">ยังไม่มีข้อมูลรายการวิ่ง</td></tr>';
         scheduleEventsData = [];
         return;
       }
@@ -6468,12 +6484,16 @@ function loadSchedule() {
         r._displayTeamText   = teamText;
         r._displayRemarkText = remarkText;
 
+        const drawText = r.SlotStatus==='preview' ? 'เบื้องต้น · ยังไม่สุ่ม'
+          : r.SlotStatus==='drawn' ? 'สุ่มจัดแล้ว'
+          : r.SlotStatus==='waiting' ? 'รอผลคัดเลือก' : 'ยังไม่มีผู้สมัคร';
         tr.innerHTML = `
           <td>${escSchedule(r.EventID || idx + 1)}</td>
           <td>${escSchedule(r.EventName  || '')}</td>
           <td>${escSchedule(r.Heat       || '')}</td>
           <td>${escSchedule(teamText)}</td>
           <td>${escSchedule(remarkText || '')}</td>
+          <td class="schedule-round-state">${escSchedule(drawText)}</td>
         `;
 
         tr.addEventListener('click', onScheduleRowClick);
@@ -6490,6 +6510,7 @@ function loadSchedule() {
            </td></tr>`;
       }
       scheduleEventsData = [];
+      if(summaryEl)summaryEl.textContent='โหลดสรุปการสมัครไม่สำเร็จ';
     })
     .getEventsForSchedule();
 }
@@ -6546,7 +6567,7 @@ function onScheduleRowClick(e) {
   loadingTr.dataset.parentId = rowId;
   loadingTr.innerHTML = `
     <td></td>
-    <td colspan="9" style="text-align:center;">กำลังโหลดข้อมูลโรงเรียนที่สมัคร...</td>
+    <td colspan="5" style="text-align:center;">กำลังโหลดข้อมูลโรงเรียนที่สมัคร...</td>
   `;
   tbody.insertBefore(loadingTr, tr.nextElementSibling);
 
@@ -6564,7 +6585,7 @@ function onScheduleRowClick(e) {
         emptyTr.dataset.parentId = rowId;
         emptyTr.innerHTML = `
           <td></td>
-          <td colspan="9" style="text-align:center;">ยังไม่มีใบสมัครในระบบสำหรับรายการหรือฮีทนี้</td>
+          <td colspan="5" style="text-align:center;">ยังไม่มีใบสมัครในระบบสำหรับรายการหรือฮีทนี้</td>
         `;
         tbody.insertBefore(emptyTr, tr.nextElementSibling);
         return;
@@ -6611,10 +6632,10 @@ function onScheduleRowClick(e) {
         dr.innerHTML = `
           <td></td>
           <td class="detail-school">${escSchedule(d.SchoolName || '')}</td>
-          <td class="detail-runner" colspan="7">
+          <td class="detail-runner" colspan="3">
             ${runnerText}
           </td>
-          <td class="detail-lane">ลู่ ${escSchedule(d.Lane || '')}</td>
+          <td class="detail-lane">ลู่ ${escSchedule(d.Lane || '')}${d.IsProvisional ? ' (เบื้องต้น)' : ''}</td>
         `;
         detailRows.push(dr);
       });
@@ -6631,7 +6652,7 @@ function onScheduleRowClick(e) {
       errTr.dataset.parentId = rowId;
       errTr.innerHTML = `
         <td></td>
-        <td colspan="9" style="color:#f97316;text-align:center;">
+        <td colspan="5" style="color:#f97316;text-align:center;">
           โหลดข้อมูลโรงเรียนไม่สำเร็จ: ${escSchedule(
             err && err.message ? err.message : err
           )}
@@ -6807,6 +6828,12 @@ function buildProgramHtml(programItems) {
 function printScheduleProgram() {
   if (!scheduleEventsData || !scheduleEventsData.length) {
     alert('กรุณากดปุ่ม "รีเฟรชข้อมูล" ก่อนพิมพ์สูจิบัตร');
+    return;
+  }
+
+  if (scheduleEventsData.some(ev => Number(ev.RegistrationCount || 0) > 0 &&
+      ev.SlotStatus === 'preview')) {
+    alert('รายการบางส่วนยังเป็นฮีทและลู่เบื้องต้น กรุณาสุ่มจัดฮีทและลู่ก่อนพิมพ์สูจิบัตรทางการ');
     return;
   }
 
