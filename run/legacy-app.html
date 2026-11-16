@@ -6421,7 +6421,7 @@ function loadSchedule() {
           '<span class="schedule-stat">ใบสมัคร <strong>'+formatCount(summary.registrationCount)+'</strong> รายการ</span>'+
           '<span class="schedule-stat">รายการแข่งขันที่มีผู้สมัคร <strong>'+formatCount(summary.competitionCount)+'</strong> รายการ</span>'+
           '<span class="schedule-stat">โรงเรียนที่สมัคร <strong>'+formatCount(summary.schoolCount)+'</strong> แห่ง</span>'+
-          '<span class="schedule-explainer">ฮีทและลู่เบื้องต้นยังไม่เป็นทางการ จนกว่าจะสุ่มจัดฮีทและลู่</span>';
+          '<span class="schedule-explainer">เรียงรายการตามเวลาสมัครครั้งแรก · ฮีท/ลู่ชั่วคราวยังไม่เป็นทางการจนกว่าจะสุ่ม</span>';
       }
       rows = Array.isArray(rows) ? rows : [];
 
@@ -6485,7 +6485,7 @@ function loadSchedule() {
         r._displayRemarkText = remarkText;
 
         const drawText = r.SlotStatus==='preview' ? 'เบื้องต้น · ยังไม่สุ่ม'
-          : r.SlotStatus==='drawn' ? 'สุ่มจัดแล้ว'
+          : r.SlotStatus==='drawn' ? 'มีการจัดฮีท/ลู่ไว้แล้ว'
           : r.SlotStatus==='waiting' ? 'รอผลคัดเลือก' : 'ยังไม่มีผู้สมัคร';
         tr.innerHTML = `
           <td>${escSchedule(r.EventID || idx + 1)}</td>
