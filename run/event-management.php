@@ -44,10 +44,12 @@ function event_schools(array $regs): array {
 }
 function event_heat_sizes(int $teams): array {
     if($teams<=0)return [];
-    if($teams<=6)return [$teams];
-    if($teams<=8)return [intdiv($teams+1,2),intdiv($teams,2)];
-    // At least two heats for preliminaries (9=5+4, 10=5+5).
-    $number=(int)ceil($teams/5);
+    // One round for up to eight *registered schools*, regardless of the
+    // number of pre-seeded heat rows. Nine schools start the qualifiers.
+    if($teams<=8)return [$teams];
+    // Each heat can carry at most eight schools (eight running lanes).
+    // 9..16 schools => two preliminary heats, 17..24 => three, etc.
+    $number=(int)ceil($teams/8);
     $base=intdiv($teams,$number);
     $extra=$teams%$number;
     $out=[];
@@ -62,6 +64,8 @@ function event_lanes(int $count): array {
         4=>[3,4,5,6],
         5=>[2,3,4,5,6],
         6=>[1,2,3,4,5,6],
+        7=>[1,2,3,4,5,6,7],
+        8=>[1,2,3,4,5,6,7,8],
         default=>throw new InvalidArgumentException('Invalid heat lane count')
     };
 }
@@ -89,9 +93,10 @@ function event_schedule_data(): array {
             continue;
         }
         $sizes=event_heat_sizes($teams);
-        // Judge the round by the number of heats, not by an 8-school cutoff.
-        // Seven/eight schools are drawn into two heats: both are qualifiers.
-        $directFinal=count($sizes)===1;
+        // 1..8 registered schools compete in heat 1 as the direct final.
+        // With 9+ schools the configured multiple heats are qualifiers and
+        // the separately seeded final waits for qualifying results.
+        $directFinal=$teams<=8;
         $byHeat=[];
         foreach($regs as $reg){
             $h=(int)($reg['heat']??0);
