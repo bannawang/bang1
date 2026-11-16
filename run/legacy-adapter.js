@@ -71,9 +71,9 @@
      // An imported program may contain several preliminary heat slots plus a later
      // final for the same race. Teachers register once per competition, not per slot.
      const chosen=new Map();
-     const finalSlot=r=>String(r.Remark||'').trim()==='ชิงชนะเลิศ'
-       ||String(r.HeatPlan||'').trim()==='ชิง'
-       ||String(r.Stage||'').trim()==='ชิงชนะเลิศ';
+     const finalSlot=r=>String(r.HeatPlan||'').trim()==='ชิง'
+       ||(String(r.Remark||'').trim()==='คัดเลือก'
+         &&String(r.Stage||'').trim()==='ชิงชนะเลิศ');
      for(const e of toList(ev)){
        const k=key(e),prior=chosen.get(k);
        if(!prior||(finalSlot(prior)&&!finalSlot(e)))chosen.set(k,e);
@@ -140,7 +140,8 @@
      // Always use the unique source event ID: equal event names appear in
      // several heats and can have different eligible entrants.
      const matches=eventId!=null&&String(eventId)!==''
-       ? events.filter(e=>String(e.EventID)===String(eventId))
+       ? events.filter(e=>String(e.EventID)===String(eventId)
+           &&String(e.Heat||'')===String(heat||''))
        : events.filter(e=>e.EventName===eventName&&String(e.Heat||'')===String(heat||''));
      return matches.flatMap(e=>e.entries||[])
        .map(x=>({SchoolName:x.SchoolName,RunnerName:x.RunnerName,
