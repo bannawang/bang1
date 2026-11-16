@@ -134,7 +134,11 @@
    registerEvent:(form)=>request('save_registration',{regId:form.regId,eventId:form.eventId,runnerIds:form.runnerIds,schoolName:form.schoolName}).then(r=>({...r,message:form.regId?'บันทึกการแก้ไขรายการวิ่งสำเร็จ':'สมัครรายการวิ่งสำเร็จ',regId:r.id})),
    deleteRegistration:(id)=>request('delete_registration',{id}).then(r=>({...r,message:'ลบรายการสมัครเรียบร้อยแล้ว'})),
    getAvailableEventsForDropdown:(user,school)=>availableEvents(user,school),
-   getEventsForSchedule:()=>sessionUser?request('schedule').then(r=>toList(r)):Promise.resolve([]),
+   getEventsForSchedule:()=>sessionUser?request('schedule').then(r=>{
+     const schedule=toList(r);
+     schedule.summary=r.summary||{};
+     return schedule;
+   }):Promise.resolve([]),
    getEventRunnersForSchedule:(eventName,heat,eventId)=>request('schedule').then(r=>{
      const events=toList(r);
      // Always use the unique source event ID: equal event names appear in
@@ -145,7 +149,7 @@
        : events.filter(e=>e.EventName===eventName&&String(e.Heat||'')===String(heat||''));
      return matches.flatMap(e=>e.entries||[])
        .map(x=>({SchoolName:x.SchoolName,RunnerName:x.RunnerName,
-         Heat:x.Heat,Lane:x.Lane}))
+         Heat:x.Heat,Lane:x.Lane,IsProvisional:!!x.IsProvisional}))
        .sort((a,b)=>{
          const la=Number(a.Lane)||9999, lb=Number(b.Lane)||9999;
          return la-lb;
