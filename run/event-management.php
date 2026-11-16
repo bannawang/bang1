@@ -10,11 +10,14 @@ function event_key(array $e): string {
     ]));
 }
 function event_is_final(array $e): bool {
-    // Original spreadsheet uses remark=คัดเลือก + stage=ชิงชนะเลิศ
-    // for the pre-set later final (e.g. EventID 40), so stage is authoritative.
-    return trim((string)($e['remark']??''))==='ชิงชนะเลิศ'
-      || trim((string)($e['heat_plan']??''))==='ชิง'
-      || trim((string)($e['stage']??''))==='ชิงชนะเลิศ';
+    // Identify the separate, pre-seeded final fixture, NOT a main heat that
+    // was historically labelled "ชิงชนะเลิศ" when few schools had signed up.
+    // A main heat may become a preliminary after more schools register.
+    $plan=trim((string)($e['heat_plan']??''));
+    $remark=trim((string)($e['remark']??''));
+    $stage=trim((string)($e['stage']??''));
+    return $plan==='ชิง'
+        || ($remark==='คัดเลือก' && $stage==='ชิงชนะเลิศ');
 }
 function event_registration_rows(): array {
     return rows('SELECT id,event_id,event_name,category,level,school_name,runner_names,heat,lane FROM registrations ORDER BY id');
@@ -79,13 +82,16 @@ function event_schedule_data(): array {
         if($teams===0){
             foreach($evs as $ev){
                 $result[]=array_merge(event_map_schedule($ev),[
-                    'entries'=>[], 'SchoolCount'=>0,'CompetitionRound'=>'ตั้งค่าไว้เดิม'
+                    'entries'=>[], 'RegisteredTeams'=>0,
+                    'SchoolCount'=>0,'CompetitionRound'=>'ตั้งค่าไว้เดิม'
                 ]);
             }
             continue;
         }
         $sizes=event_heat_sizes($teams);
-        $directFinal=$teams<=8;
+        // Judge the round by the number of heats, not by an 8-school cutoff.
+        // Seven/eight schools are drawn into two heats: both are qualifiers.
+        $directFinal=count($sizes)===1;
         $byHeat=[];
         foreach($regs as $reg){
             $h=(int)($reg['heat']??0);
@@ -110,6 +116,14 @@ function event_schedule_data(): array {
             $line['Stage']=$directFinal?'ชิงชนะเลิศ':'คัดเลือก';
             $line['CompetitionRound']=$directFinal?'ชิงชนะเลิศทันที':'คัดเลือก';
             $line['entries']=$entry;
+            // This count is per heat; the number of students in a relay is
+            // never interpreted as the number of participating schools.
+            $schoolNames=[];
+            foreach($entry as $participant){
+                $schoolName=trim((string)($participant['SchoolName']??''));
+                if($schoolName!=='')$schoolNames[$schoolName]=true;
+            }
+            $line['RegisteredTeams']=count($schoolNames);
             $result[]=$line;
         }
         // Hide preconfigured separate final fixtures when the event is already a direct final.
@@ -120,11 +134,13 @@ function event_schedule_data(): array {
                 // as an upcoming final that must wait for qualifying results.
                 $line['Remark']='คัดเลือก';
                 $line['Stage']='ชิงชนะเลิศ';
+                $line['HeatPlan']='ชิง';
                 $line['TeamCount']=null;
                 $line['TotalTeams']=$teams;
                 $line['SchoolCount']=$teams;
-                $line['CompetitionRound']='รอผลรอบคัดเลือก';
+                $line['CompetitionRound']='รอผลการแข่งขันรอบคัดเลือก';
                 $line['entries']=[];
+                $line['RegisteredTeams']=0;
                 $result[]=$line;
             }
         }
