@@ -159,7 +159,10 @@ function event_map_schedule(array $e): array {
 }
 
 if($action==='schedule'){
-    json_out(['success'=>true,'data'=>event_schedule_data()]);
+    require_once __DIR__.'/schedule-registration.php';
+    $registrations=rows('SELECT id,event_id,event_name,category,level,school_name,runner_names,heat,lane,created_at FROM registrations ORDER BY created_at,id');
+    $overview=bang1_schedule_preview(event_schedule_data(),$registrations);
+    json_out(['success'=>true,'data'=>$overview['rows'],'summary'=>$overview['summary']]);
 }
 
 if($action==='manage_events'){
