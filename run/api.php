@@ -142,9 +142,23 @@ if($action==='save_runner'){
    json_out(['success'=>false,'message'=>'กรุณาเลือกระดับที่นักเรียนกำลังศึกษาอยู่จริง'],422);
  if(!$first||!$last||!in_array($gender,['ชาย','หญิง'],true)||!bang1_valid_citizen_id($citizen)||$year<2400||$year>(int)date('Y')+543)
    json_out(['success'=>false,'message'=>'กรอกข้อมูลนักวิ่งให้ถูกต้อง'],422);
- // Preserve Google Apps Script rule: a citizen ID belongs to only one runner.
- $duplicate=single('SELECT id FROM runners WHERE citizen_id=? AND id<>? LIMIT 1',[$citizen,$id]);
- if($duplicate)json_out(['success'=>false,'message'=>'ไม่สามารถบันทึกได้: เลขบัตรประชาชนนี้ถูกใช้ลงทะเบียนนักวิ่งแล้ว'],409);
+ // IDs are unique across ALL schools, but Teachers see only their
+ // own roster. Return actionable information scoped to the caller's role.
+ $duplicate=single('SELECT id,school_name FROM runners WHERE citizen_id=? AND id<>? LIMIT 1',[$citizen,$id]);
+ if($duplicate){
+   $ownerSchool=(string)($old['school_name']??$school);
+   if(is_admin($u)){
+     $message='เลขบัตรนี้มีนักวิ่งอยู่ในทะเบียนกลางแล้ว (รหัสนักวิ่ง '.$duplicate['id']
+       .' โรงเรียน '.$duplicate['school_name'].') กรุณาตรวจสอบรายการเดิมก่อน';
+   }elseif((string)$duplicate['school_name']===$ownerSchool){
+     $message='เลขบัตรนี้มีข้อมูลอยู่ในโรงเรียนของท่านแล้ว (รหัสนักวิ่ง '
+       .$duplicate['id'].') กรุณารีเฟรชรายชื่อและแก้ไขข้อมูลเดิมแทนการเพิ่มใหม่';
+   }else{
+     $message='เลขบัตรนี้มีข้อมูลอยู่ในทะเบียนกลางของโรงเรียนอื่น แม้ไม่ปรากฏในรายชื่อของท่าน '
+       .'กรุณาติดต่อ Admin เพื่อตรวจสอบการย้ายโรงเรียนก่อน';
+   }
+   json_out(['success'=>false,'message'=>$message],409);
+ }
  if($old) {
   db()->prepare('UPDATE runners SET level=?,first_name=?,last_name=?,citizen_id=?,birth_year=?,gender=?,status="รอตรวจสอบ",fail_reason="" WHERE id=?')->execute([$level,$first,$last,$citizen,$year,$gender,$id]);
   $code='RUNNER_UPDATE';
