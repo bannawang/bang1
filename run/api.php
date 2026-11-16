@@ -182,12 +182,15 @@ if($action==='delete_runner'){
           bang1_runner_registration_member_count((string)$reg['runner_ids']));
       if($block!==null)throw new DomainException($block.' (รายการ: '.$reg['event_name'].')');
     }
-    // Delete only unscored, unchecked single-athlete entries. Historical
+    // Delete only current, unscored single-athlete entries. An attendance
+    // check-in without a result is withdrawn together with the entry; past
     // race_history_results / race_results remain untouched.
     foreach($regs as $reg){
+      db()->prepare('DELETE FROM race_athlete_checkins WHERE registration_id=?')->execute([$reg['id']]);
+      db()->prepare('DELETE FROM race_checkins WHERE registration_id=?')->execute([$reg['id']]);
       db()->prepare('DELETE FROM registrations WHERE id=?')->execute([$reg['id']]);
       log_action('REG_DELETE_WITH_RUNNER',$u,'Registration',(string)$reg['id'],
-          'ยกเลิกใบสมัครเดี่ยวเนื่องจากนักวิ่งย้ายโรงเรียน');
+          'ยกเลิกใบสมัครเดี่ยวและการรายงานตัวที่ยังไม่มีผลการแข่งขัน เนื่องจากนักวิ่งย้ายโรงเรียน');
     }
     db()->prepare('DELETE FROM runners WHERE id=?')->execute([$id]);
     log_action('RUNNER_DELETE',$u,'Runner',(string)$id,
@@ -195,7 +198,7 @@ if($action==='delete_runner'){
     db()->commit();
     json_out(['success'=>true,'deletedRegistrations'=>count($regs),
       'message'=>count($regs)
-        ?'ลบนักวิ่งแล้ว และยกเลิกใบสมัครเดี่ยวที่ยังไม่มีผลการแข่งขัน '.count($regs).' รายการ'
+        ?'ลบนักวิ่งแล้ว และยกเลิกใบสมัครเดี่ยว/การรายงานตัวที่ยังไม่มีผลการแข่งขัน '.count($regs).' รายการ'
         :'ลบนักวิ่งเรียบร้อยแล้ว']);
   }catch(DomainException $e){
     if(db()->inTransaction())db()->rollBack();
@@ -259,11 +262,18 @@ if($action==='save_registration'){
  $id=(int)($input['regId']??0);
  $ev=single('SELECT * FROM events WHERE id=?',[(int)($input['eventId']??0)]);
  if(!$ev)json_out(['success'=>false,'message'=>'ไม่พบรายการแข่งขัน'],422);
- // A pre-seeded final is a fixture, never another independent sign-up form.
+ // The form may still hold a pre-seeded final EventID (older browser cache or
+ // imported fixture order). Route it to the matching preliminary/main slot.
+ // Never create a separate registration for the final.
  if(event_is_final($ev)){
-    $others=rows("SELECT id FROM events WHERE name=? AND category <=> ? AND level <=> ? AND gender <=> ? AND id<>? LIMIT 1",
+    $siblings=rows("SELECT * FROM events WHERE name=? AND category <=> ? AND level <=> ? AND gender <=> ? AND id<>? ORDER BY source_order,id",
         [$ev['name'],$ev['category'],$ev['level'],$ev['gender'],$ev['id']]);
-    if($others)json_out(['success'=>false,'message'=>'รายการนี้เป็นรอบชิงที่ตั้งไว้ กรุณาสมัครผ่านรายการหลัก'],422);
+    $main=null;
+    foreach($siblings as $slot){
+      if(!event_is_final($slot)){$main=$slot;break;}
+    }
+    if($main!==null)$ev=$main;
+    elseif($siblings)json_out(['success'=>false,'message'=>'ยังไม่พบรายการหลักที่เปิดรับสมัครสำหรับการแข่งขันนี้ กรุณาแจ้งผู้ดูแลระบบ'],422);
  }
  $ids=array_unique(array_values(array_filter(array_map('intval',(array)($input['runnerIds']??[])))));
  $max=$ev['category']==='วิ่งผลัด'?6:2;
