@@ -262,18 +262,19 @@ if($action==='save_registration'){
  $id=(int)($input['regId']??0);
  $ev=single('SELECT * FROM events WHERE id=?',[(int)($input['eventId']??0)]);
  if(!$ev)json_out(['success'=>false,'message'=>'ไม่พบรายการแข่งขัน'],422);
- // The form may still hold a pre-seeded final EventID (older browser cache or
- // imported fixture order). Route it to the matching preliminary/main slot.
- // Never create a separate registration for the final.
+ // A program can contain multiple heats with the same race name. Some
+ // direct finals (notably young age groups) have every heat marked as final.
+ // Resolve all sign-ups to one canonical EventID: prefer a non-final slot
+ // when one exists, otherwise use the earliest slot as the main event.
+ // The latter is NOT a reason to reject an otherwise valid registration.
  if(event_is_final($ev)){
-    $siblings=rows("SELECT * FROM events WHERE name=? AND category <=> ? AND level <=> ? AND gender <=> ? AND id<>? ORDER BY source_order,id",
-        [$ev['name'],$ev['category'],$ev['level'],$ev['gender'],$ev['id']]);
+    $slots=rows("SELECT * FROM events WHERE name=? AND category <=> ? AND level <=> ? AND gender <=> ? ORDER BY source_order,id",
+        [$ev['name'],$ev['category'],$ev['level'],$ev['gender']]);
     $main=null;
-    foreach($siblings as $slot){
+    foreach($slots as $slot){
       if(!event_is_final($slot)){$main=$slot;break;}
     }
-    if($main!==null)$ev=$main;
-    elseif($siblings)json_out(['success'=>false,'message'=>'ยังไม่พบรายการหลักที่เปิดรับสมัครสำหรับการแข่งขันนี้ กรุณาแจ้งผู้ดูแลระบบ'],422);
+    $ev=$main??($slots[0]??$ev);
  }
  $ids=array_unique(array_values(array_filter(array_map('intval',(array)($input['runnerIds']??[])))));
  $max=$ev['category']==='วิ่งผลัด'?6:2;
