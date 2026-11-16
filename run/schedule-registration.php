@@ -84,3 +84,145 @@ function bang1_schedule_resolve(array $events, array $registrations): array {
     unset($item);
     return $map;
 }
+
+
+/**
+ * The schedule preview is READ-ONLY. Only auto_heats may persist randomized
+ * heats/lanes; until then registrations are laid out in signup order.
+ */
+function bang1_schedule_preview_key(string $name,string $category,string $level): string {
+    return implode("\x1f",[
+        bang1_schedule_name($name),
+        bang1_schedule_name($category),
+        bang1_schedule_name($level)
+    ]);
+}
+function bang1_schedule_preview(array $fixtures,array $registrations):array {
+    usort($registrations,static function(array $a,array $b):int{
+        $aTime=trim((string)($a['created_at']??''))?:'9999-12-31 23:59:59';
+        $bTime=trim((string)($b['created_at']??''))?:'9999-12-31 23:59:59';
+        return strcmp($aTime,$bTime) ?: ((int)$a['id']<=>(int)$b['id']);
+    });
+    $groups=[];$allSchools=[];
+    foreach($registrations as $reg){
+        $school=bang1_schedule_name((string)($reg['school_name']??''));
+        if($school==='')continue;
+        $key=bang1_schedule_preview_key(
+            (string)($reg['event_name']??''),(string)($reg['category']??''),(string)($reg['level']??''));
+        if(!isset($groups[$key])){
+            $groups[$key]=[
+                'registrations'=>[], 'schools'=>[],
+                'firstAt'=>(string)($reg['created_at']??''),
+                'firstId'=>(int)($reg['id']??0)
+            ];
+        }
+        $groups[$key]['registrations'][]=$reg;
+        if(!isset($groups[$key]['schools'][$school]))
+            $groups[$key]['schools'][$school]=$reg;
+        $allSchools[$school]=true;
+    }
+    $indices=[];
+    foreach($fixtures as $i=>&$row){
+        $key=bang1_schedule_preview_key(
+            (string)($row['EventName']??''),(string)($row['Category']??''),(string)($row['Level']??''));
+        $indices[$key][]=$i;
+        $group=$groups[$key]??null;
+        $row['GroupKey']=$key;
+        $row['RegistrationCount']=count($group['registrations']??[]);
+        $row['FirstRegistrationAt']=(string)($group['firstAt']??'');
+        $row['FirstRegistrationId']=(int)($group['firstId']??0);
+        $row['SlotStatus']='not_drawn';
+        $row['entries']=is_array($row['entries']??null)?$row['entries']:[];
+    }
+    unset($row);
+    $pending=0;
+    foreach($groups as $key=>$group){
+        $raceRows=[];
+        foreach($indices[$key]??[] as $rowId){
+            $round=(string)($fixtures[$rowId]['CompetitionRound']??'');
+            if($round==='คัดเลือก'||$round==='ชิงชนะเลิศทันที')
+                $raceRows[]=$rowId;
+            elseif($round==='รอผลการแข่งขันรอบคัดเลือก'){
+                $fixtures[$rowId]['entries']=[];
+                $fixtures[$rowId]['RegisteredTeams']=0;
+                $fixtures[$rowId]['SlotStatus']='waiting';
+            }
+        }
+        if(!$raceRows)continue;
+        $schools=array_values($group['schools']);
+        $assigned=[];$seen=[];$drawn=true;
+        foreach($schools as $school){
+            $h=(int)($school['heat']??0);
+            $lane=(int)($school['lane']??0);
+            if($h<1||$h>count($raceRows)||$lane<1||$lane>8||isset($seen[$h][$lane])){
+                $drawn=false;break;
+            }
+            $seen[$h][$lane]=true;
+            $assigned[$h][]=$school;
+        }
+        if($drawn){
+            foreach($raceRows as $i=>$rowId){
+                if(count($assigned[$i+1]??[])!==(int)($fixtures[$rowId]['TeamCount']??0)){
+                    $drawn=false;break;
+                }
+            }
+        }
+        if(!$drawn)$pending++;
+        $offset=0;
+        foreach($raceRows as $i=>$rowId){
+            $heat=$i+1;
+            $size=(int)($fixtures[$rowId]['TeamCount']??0);
+            $members=$drawn?($assigned[$heat]??[]):array_slice($schools,$offset,$size);
+            $offset+=$size;
+            $lanes=$drawn?[]:event_lanes(count($members));
+            $entries=[];
+            foreach($members as $j=>$reg){
+                $entries[]=[
+                    'SchoolName'=>(string)$reg['school_name'],
+                    'RunnerName'=>(string)($reg['runner_names']??''),
+                    'Heat'=>$heat,
+                    'Lane'=>$drawn?(int)$reg['lane']:$lanes[$j],
+                    'IsProvisional'=>!$drawn
+                ];
+            }
+            usort($entries,static fn(array $a,array $b):int=>
+                (int)$a['Lane']<=>(int)$b['Lane']);
+            $fixtures[$rowId]['entries']=$entries;
+            $fixtures[$rowId]['RegisteredTeams']=count($entries);
+            $fixtures[$rowId]['SlotStatus']=$drawn?'drawn':'preview';
+        }
+    }
+    // Older first registration gets priority. Same race stays together
+    // (heats in numeric order, reserved final after preliminary heats).
+    usort($fixtures,static function(array $a,array $b):int {
+        $aHas=(int)($a['RegistrationCount']??0)>0;
+        $bHas=(int)($b['RegistrationCount']??0)>0;
+        if($aHas!==$bHas)return $aHas?-1:1;
+        if($aHas){
+            $aTime=trim((string)($a['FirstRegistrationAt']??''))?:'9999-12-31 23:59:59';
+            $bTime=trim((string)($b['FirstRegistrationAt']??''))?:'9999-12-31 23:59:59';
+            $dateCmp=strcmp($aTime,$bTime);
+            if($dateCmp!==0)return $dateCmp;
+            $idCmp=(int)($a['FirstRegistrationId']??0) <=>
+                (int)($b['FirstRegistrationId']??0);
+            if($idCmp!==0)return $idCmp;
+            if(($a['GroupKey']??'')===($b['GroupKey']??'')){
+                $finalA=($a['SlotStatus']??'')==='waiting';
+                $finalB=($b['SlotStatus']??'')==='waiting';
+                if($finalA!==$finalB)return $finalA?1:-1;
+                return (int)($a['Heat']??0)<=>(int)($b['Heat']??0);
+            }
+        }
+        return (int)($a['SourceOrder']??$a['EventID']??0)
+            <=>(int)($b['SourceOrder']??$b['EventID']??0);
+    });
+    return [
+        'rows'=>$fixtures,
+        'summary'=>[
+            'registrationCount'=>count($registrations),
+            'competitionCount'=>count($groups),
+            'schoolCount'=>count($allSchools),
+            'previewCompetitionCount'=>$pending
+        ]
+    ];
+}
