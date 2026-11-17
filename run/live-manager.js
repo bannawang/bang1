@@ -39,9 +39,20 @@
     return f?.pendingFinal===true && isFinalFixture(f);
   }
   function livePickerSorted(fixtures){
-    // Validated finalists first, waiting finals next; other items retain their order.
-    const priority=f=>isQualifiedFinal(f)?0:isPendingFinal(f)?1:2;
-    return [...fixtures].sort((a,b)=>priority(a)-priority(b));
+    // Use the *published program order* (SourceOrder), not the competition
+    // stage or whether final results are ready. This mirrors the schedule
+    // from the first preliminary heat to the last scheduled final.
+    const order=f=>{
+      const source=Number(f?.order);
+      if(Number.isFinite(source)&&source>0)return source;
+      const eventId=Number(f?.eventId);
+      if(Number.isFinite(eventId)&&eventId>0)return eventId;
+      const label=String(f?.eventNumberLabel||'').match(/^\\d+/);
+      return label?Number(label[0]):Number.MAX_SAFE_INTEGER;
+    };
+    return [...fixtures].sort((a,b)=>order(a)-order(b)||
+      Number(a?.eventId||0)-Number(b?.eventId||0)||
+      Number(a?.heat||0)-Number(b?.heat||0));
   }
   function fixtureTitle(f){
     return 'รายการที่ '+(f.eventNumberLabel||f.eventId||'—')+' · '+(f.eventName||'ไม่ระบุรายการ');
@@ -94,7 +105,7 @@
     menu.style.width=width+'px';
     menu.style.maxHeight=Math.max(120,Math.min(desiredHeight,available))+'px';
   }
-  function renderFixtureOptions(scrollToReady=false){
+  function renderFixtureOptions(){
     const list=el('bang1FixtureList'),footer=el('bang1FixtureResults');
     if(!list||!footer)return;
     const previousScroll=list.scrollTop;
@@ -162,11 +173,13 @@
       const focused=[...list.querySelectorAll('[data-key]')].find(node=>node.dataset.key===focusedKey);
       focused?.focus({preventScroll:true});
     }
-    list.scrollTop=scrollToReady&&fixtureRound!=='prelim'&&!query?0:previousScroll;
+    // LIVE may update while the picker is open; do not jump to another
+    // position when a result is saved. Keep the coach's current scroll.
+    list.scrollTop=previousScroll;
     const readyTotal=fixtureItems.filter(isQualifiedFinal).length;
     const pendingTotal=fixtureItems.filter(isPendingFinal).length;
     footer.textContent='แสดง '+visible.length+' จาก '+fixtureItems.length+
-      ' รายการแข่งขัน · พร้อมรอบชิง '+readyTotal+
+      ' รายการแข่งขัน · เรียงตามลำดับรายการจัดแข่งขัน · พร้อมรอบชิง '+readyTotal+
       ' · รอผลคัดเลือก '+pendingTotal+' · อัปเดตอัตโนมัติ';
     el('bang1FixturePopover').querySelectorAll('[data-round]').forEach(btn=>{
       const active=btn.dataset.round===fixtureRound;
@@ -186,7 +199,7 @@
     trigger.setAttribute('aria-expanded','true');
     lastMenuHash=JSON.stringify([
       el('bang1ActiveFixture')?.value,
-      fixtureItems.map(f=>[f.key,f.checked,f.total,f.round,f.qualifiedFinal,
+      fixtureItems.map(f=>[f.key,f.checked,f.total,f.round,f.order,f.qualifiedFinal,
         f.pendingFinal,f.teams,f.qualificationSavedHeats,f.qualificationRequiredHeats])
     ]);
     renderFixtureOptions();
@@ -323,7 +336,7 @@
       [...readyKeys].some(key=>!knownReadyFinalKeys.has(key));
     knownReadyFinalKeys=readyKeys;
     receivedFirstFixtureList=true;
-    const optionHash=JSON.stringify(fixtures.map(f=>[f.key,f.eventNumberLabel,f.eventName,f.category,f.level,f.gender,f.heat,f.heats,f.round,f.qualifiedFinal]));
+    const optionHash=JSON.stringify(fixtures.map(f=>[f.key,f.eventNumberLabel,f.eventName,f.category,f.level,f.gender,f.heat,f.heats,f.round,f.order,f.qualifiedFinal]));
     if(optionHash!==lastOptionHash){
       lastOptionHash=optionHash;
       select.replaceChildren(new Option('เลือกรายการแข่งขัน/ฮีท',''));
@@ -333,14 +346,14 @@
     if(!switchInFlight)select.value=data.active?.key||'';
     updateFixtureTrigger();
     const menuHash=JSON.stringify([
-      select.value,fixtureItems.map(f=>[f.key,f.checked,f.total,f.round,f.qualifiedFinal,
+      select.value,fixtureItems.map(f=>[f.key,f.checked,f.total,f.round,f.order,f.qualifiedFinal,
         f.pendingFinal,f.teams,f.qualificationSavedHeats,f.qualificationRequiredHeats])
     ]);
     // Four-second background refresh must not erase keyboard focus or scroll
     // position inside an open competition picker.
     if(fixtureMenuOpen&&(menuHash!==lastMenuHash||newReadyFinal)){
       lastMenuHash=menuHash;
-      renderFixtureOptions(newReadyFinal);
+      renderFixtureOptions();
     }
     const sport=data.display?.mode==='sport';
     const sportBtn=el('bang1SportToggle');

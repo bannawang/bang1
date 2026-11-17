@@ -10,21 +10,28 @@ const end=js.indexOf('  function fixtureTitle(f){',begin);
 assert(begin>=0&&end>begin,'Fixture helpers found');
 const c={};vm.createContext(c);
 vm.runInContext(js.slice(begin,end),c);
-const ready={key:'final-31',eventId:31,round:'รอบชิง',teams:6,qualifiedFinal:true};
-const direct={key:'direct-67',eventId:67,round:'รอบชิง',teams:8};
-const prelim={key:'heat-23',eventId:23,round:'คัดเลือก',teams:5};
+const ready={key:'final-31',eventId:31,order:31,round:'รอบชิง',teams:6,qualifiedFinal:true};
+const direct={key:'direct-67',eventId:67,order:67,round:'รอบชิง',teams:8};
+const prelim={key:'heat-23',eventId:23,order:23,round:'คัดเลือก',teams:5};
 assert.equal(c.isQualifiedFinal(ready),true,'Validated qualifying final recognized');
 assert.equal(c.isQualifiedFinal(direct),false,'Direct final does not receive qualified badge');
 assert.equal(c.isQualifiedFinal(prelim),false,'Preliminary heat not a final');
-const pending={key:'pending-final-31',eventId:31,round:'รอบชิง',
+const pending={key:'pending-final-31',eventId:32,order:32,round:'รอบชิง',
   pendingFinal:true,qualificationSavedHeats:1,qualificationRequiredHeats:2};
 assert.equal(c.isPendingFinal(pending),true,'Waiting final visible but not broadcastable');
 assert.equal(c.isQualifiedFinal(pending),false,'Pending never presented as ready');
-assert.deepEqual(Array.from(c.livePickerSorted([prelim,direct,pending,ready]),x=>x.key),
-  ['final-31','pending-final-31','heat-23','direct-67'],
-  'Ready and pending finals first, others retain original order');
+const heat1={key:'heat-11',eventId:11,order:11,heat:1,round:'คัดเลือก'};
+const heat2={key:'heat-12',eventId:12,order:12,heat:2,round:'คัดเลือก'};
+assert.deepEqual(Array.from(c.livePickerSorted([direct,pending,ready,prelim,heat2,heat1]),x=>x.key),
+  ['heat-11','heat-12','heat-23','final-31','pending-final-31','direct-67'],
+  'LIVE picker must follow source program order, including separate heats and reserved finals');
+const scheduledLate={key:'source-100',eventId:3,order:100,round:'รอบคัดเลือก'};
+assert.deepEqual(Array.from(c.livePickerSorted([scheduledLate,ready,prelim]),x=>x.key),
+  ['heat-23','final-31','source-100'],
+  'SourceOrder wins over EventID when published schedule defines a different order');
 assert(js.includes("readyKeys=new Set(fixtures.filter(isQualifiedFinal)"),'Newly confirmed finals detected');
-assert(js.includes("renderFixtureOptions(newReadyFinal)"),'Menu refreshes and highlights new final');
+assert(js.includes("renderFixtureOptions();"),'Menu refreshes without jumping to a new final');
+assert(js.includes("list.scrollTop=previousScroll"),'Keep the manager scroll position after live results update');
 assert(js.includes("const cadence=fixtureMenuOpen?1500:4000"),'Picker refreshes faster than normal view');
 assert(js.includes("void refresh();"),'Opening picker checks fresh server state');
 assert(js.includes('พร้อมปล่อย LIVE'),'Ready-final status is visible');
@@ -32,5 +39,5 @@ assert(js.includes('const pending=Array.isArray(data.pendingFinals)'),'Manager r
 assert(js.includes('option.disabled=isPendingFinal(f)'),'Pending fixture cannot be selected');
 assert(js.includes('ยังไม่เปิดให้ปล่อย LIVE'),'Pending final label explains status');
 assert(css.includes('.bang1-fixture-option.is-qualified-final'),'Ready finals are visually distinct');
-assert(html.includes('live-manager.js?v=20261117-qualifier-pending2'),'Manager browser cache is invalidated');
-console.log('PASS LIVE qualified-final chooser: priority, ready badge, fast refresh and unchanged direct-finals');
+assert(html.includes('live-manager.js?v=20261117-program-order3'),'Manager browser cache is invalidated');
+console.log('PASS LIVE manager chooser: official order, separate heats, ready badge, fast refresh');

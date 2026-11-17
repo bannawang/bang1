@@ -162,13 +162,16 @@ check(live_fixture_round(999,$event11,$roundIndex)==='รอยืนยัน�
 echo "PASS official round from full competition schedule, Event 11 two heats, final and unknown fixtures\n";
 
 
-// A competition is one Live selection across all its preliminary heats,
-// even though every registration retains its own persisted heat number.
+// Each official preliminary heat is independently selectable on LIVE and
+// follows the exact event program (e.g. EventIDs 11 then 12).
 $h1=['event_name'=>'วิ่ง 80 เมตร (8 ปี ชาย)',
     'category'=>'วิ่งเดี่ยว','level'=>'ประถม','heat'=>1];
 $h2=$h1;$h2['heat']=2;
-check(live_competition_key($h1,'รอบคัดเลือก')===live_competition_key($h2,'รอบคัดเลือก'),
-    'Event 11 and 12 must be merged into a single preliminary Live fixture');
+check(live_competition_key($h1,'รอบคัดเลือก')!==live_competition_key($h2,'รอบคัดเลือก'),
+    'Event 11 and 12 must be independent preliminary LIVE selections');
+check(live_legacy_competition_key($h1,'รอบคัดเลือก')===
+      live_legacy_competition_key($h2,'รอบคัดเลือก'),
+    'Old combined event key remains recognizable for active selection migration');
 check(live_competition_key($h1,'รอบคัดเลือก')!==live_competition_key($h2,'รอบชิง'),
     'A later final must never be merged with preliminary heats');
 check(live_competition_key($h1,'รอบคัดเลือก')!==live_competition_key(
@@ -197,7 +200,7 @@ check(live_event_number_label([11])==='11','Single heat must retain single event
 $heats=[];
 live_add_heat($heats,2);live_add_heat($heats,1);live_add_heat($heats,2);
 check($heats===[1,2],'School heat badges must be unique and ordered');
-echo "PASS combined event 11–12, separate final, correct IDs and school heat badges\n";
+echo "PASS separate live heats 11 and 12, separate final, correct IDs and school heat badges\n";
 
 
 // Reporting counters are based on competition slots, NOT all candidate names.

@@ -92,13 +92,24 @@ function live_fixture_round(int $eventId,array $registration,array $index):strin
 }
 
 /**
- * The Live board selects a competition/round rather than an individual heat.
- * Heat membership stays on each registration and is still independently
- * audited in race_athlete_checkins by registration ID + athlete key.
+ * Historical LIVE selection grouped all preliminary heats into one fixture.
+ * Preserve that key only for resolving already-active selections on upgrade.
  */
-function live_competition_key(array $row,string $round):string {
+function live_legacy_competition_key(array $row,string $round):string {
     return hash('sha256',json_encode([
         live_event_order_key($row),$round
+    ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
+}
+/**
+ * The official running order has a separate EventID for EACH preliminary
+ * heat. Keep their LIVE selections separate so coaches can call each heat
+ * independently in exactly the published program order. Existing runner
+ * attendance remains keyed to registration ID; no DB migration is required.
+ */
+function live_competition_key(array $row,string $round):string {
+    if($round!=='รอบคัดเลือก')return live_legacy_competition_key($row,$round);
+    return hash('sha256',json_encode([
+        live_event_order_key($row),$round,max(1,(int)($row['heat']??1))
     ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
 }
 /** Official event number/ordering for each heat from the published schedule. */
@@ -499,6 +510,7 @@ function live_dataset(bool $manager=false,?string $sportFixtureKey=null):array {
             $pendingFinals[]=[
                 'key'=>'pending-final-'.$id,
                 'eventId'=>$id,'eventNumberLabel'=>(string)$id,
+                'order'=>(int)($line['SourceOrder']??$id),
                 'eventName'=>(string)($line['EventName']??''),
                 'category'=>(string)($line['Category']??''),
                 'level'=>(string)($line['Level']??''),
@@ -547,13 +559,17 @@ function live_dataset(bool $manager=false,?string $sportFixtureKey=null):array {
             (int)($ord['eventId']??$r['event_id']??0);
         $round=$qualifiedFinal?'รอบชิง':live_fixture_round($oldEventId,$r,$roundIndex);
         $key=live_competition_key($r,$round);
-        // Upgrade stored Active selections from both earlier per-heat formats
-        // without changing or clearing the persisted selection/check-ins.
+        $heat=max(1,(int)($r['heat']??1));
+        // Preserve both historic per-heat keys AND the older combined key.
+        // A previously-active combined preliminary defaults to heat 1, never
+        // to a random later heat. Do not change the stored check-in records.
         if(!$qualifiedFinal){
             $legacyToCurrent[live_group_key($r)]=$key;
             $legacyToCurrent[live_legacy_group_key($r)]=$key;
+            $combinedKey=live_legacy_competition_key($r,$round);
+            if($heat===1||!isset($legacyToCurrent[$combinedKey]))
+                $legacyToCurrent[$combinedKey]=$key;
         }
-        $heat=max(1,(int)($r['heat']??1));
         $slotKey=live_event_order_key($r).'|'.$round.'|'.$heat;
         $slot=$heatSlots[$slotKey]??null;
         $eventId=$qualifiedFinal?(int)$r['_final_event_id']:
