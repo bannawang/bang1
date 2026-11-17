@@ -2,12 +2,54 @@
 #page-qr-checkin .bang1-qr-card{margin-bottom:14px}
 #page-qr-checkin .bang1-qr-help{font-size:.9rem;color:#b8cfe1;line-height:1.55;margin:8px 0 13px}
 #page-qr-checkin .bang1-qr-label{display:block;margin:8px 0;font-weight:750;color:#cdf1ff}
-#page-qr-checkin .bang1-qr-select,#page-qr-checkin .bang1-qr-manual input{
+#page-qr-checkin .bang1-qr-manual input{
   box-sizing:border-box;width:100%;min-height:48px;padding:10px 13px;
   background:#071a2e;color:#eef9ff;border:1px solid #428cb7;border-radius:11px;
   font:inherit;font-size:1rem
 }
-#page-qr-checkin .bang1-qr-select:focus,#page-qr-checkin .bang1-qr-manual input:focus{outline:2px solid #32bfe8;outline-offset:1px}
+#page-qr-checkin .bang1-qr-manual input:focus{outline:2px solid #32bfe8;outline-offset:1px}
+#page-qr-checkin .bang1-qr-native{display:none!important}
+#page-qr-checkin .bang1-fixture-control{position:relative;min-width:0}
+#page-qr-checkin .bang1-fixture-trigger{
+  width:100%;min-width:0;min-height:75px;padding:11px 16px;
+  display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer;
+  border:1.5px solid #4479a1;border-radius:14px;
+  background:linear-gradient(110deg,#09213b,#10385c);
+  color:#f0faff;box-shadow:inset 0 1px 0 #ffffff16,0 7px 18px #020d2140;
+  font:inherit;transition:background .15s,border-color .15s,box-shadow .15s;
+}
+#page-qr-checkin .bang1-fixture-trigger:hover{
+  border-color:#47c5ed;box-shadow:0 0 0 2px #2db8e324,0 7px 18px #020d2140;
+}
+#page-qr-checkin .bang1-fixture-trigger:focus-visible{
+  outline:3px solid #4de0fe;outline-offset:2px;
+}
+#page-qr-checkin .bang1-fixture-trigger.is-final{
+  border-color:#61ce9b;background:linear-gradient(110deg,#073d36,#14644e);
+}
+#page-qr-checkin .bang1-fixture-trigger-icon{
+  width:43px;height:43px;display:grid;place-items:center;flex:none;
+  border-radius:11px;background:#46baf326;font-size:1.35rem;
+}
+#page-qr-checkin .bang1-fixture-trigger.is-final .bang1-fixture-trigger-icon{background:#a6f3c533}
+#page-qr-checkin .bang1-fixture-trigger-copy{
+  flex:1;min-width:0;display:flex;flex-direction:column;gap:4px
+}
+#page-qr-checkin .bang1-fixture-trigger-copy strong{
+  font-size:clamp(.9rem,1.08vw,1.09rem);font-weight:850;line-height:1.3;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis
+}
+#page-qr-checkin .bang1-fixture-trigger-copy small{
+  font-size:.78rem;color:#a8d1e6;overflow:hidden;white-space:nowrap;text-overflow:ellipsis
+}
+#page-qr-checkin .bang1-fixture-trigger.is-final .bang1-fixture-trigger-copy small{color:#bff9dd}
+#page-qr-checkin .bang1-fixture-trigger-chevron{
+  flex:none;color:#7de9fa;font-size:1.75rem;font-weight:700;
+  transition:transform .15s
+}
+#page-qr-checkin .bang1-fixture-trigger[aria-expanded="true"] .bang1-fixture-trigger-chevron{
+  transform:rotate(180deg)
+}
 #page-qr-checkin .bang1-qr-active{
   margin-top:12px;padding:13px;border-radius:11px;background:#0c3c55;
   border:1px solid #248aa5;color:#d0f6ff;font-weight:800;line-height:1.5
@@ -59,6 +101,10 @@
 #page-qr-checkin .bang1-qr-readonly{display:grid;place-items:center;width:27px;height:27px;border-radius:7px;background:#116a55;flex:none}
 #page-qr-checkin #bang1QrNext{margin-top:12px}
 @media(max-width:610px){
+  #page-qr-checkin .bang1-fixture-trigger{min-height:69px;padding:9px 11px;gap:9px}
+  #page-qr-checkin .bang1-fixture-trigger-icon{width:34px;height:38px;font-size:1.12rem}
+  #page-qr-checkin .bang1-fixture-trigger-copy strong{font-size:.92rem}
+  #page-qr-checkin .bang1-fixture-trigger-copy small{font-size:.72rem}
   #page-qr-checkin .bang1-qr-manual-controls{flex-direction:column;align-items:stretch}
   #page-qr-checkin .bang1-qr-manual-controls button{width:100%}
   #page-qr-checkin .bang1-qr-controls button{flex:1 1 145px}
