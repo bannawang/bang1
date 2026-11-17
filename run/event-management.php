@@ -144,13 +144,22 @@ function event_schedule_data(): array {
         // For three or more heats, no automatic promotion is attempted:
         // three qualifiers per heat would exceed an eight-lane final.
         $qualifiedFinal=[];
+        $preliminaryRankings=[];
         if(!$directFinal && count($sizes)===2 && count($finals)>0){
-            $preliminaryRankings=[];
             foreach($sizes as $i=>$_size){
                 $source=$prelims[min($i,count($prelims)-1)];
                 $heat=$i+1;
                 $key=(int)$source['id'].'|'.$heat;
-                if(isset($rankingsByFixture[$key]))$preliminaryRankings[$heat]=$rankingsByFixture[$key];
+                if(isset($rankingsByFixture[$key])){
+                    $preliminaryRankings[$heat]=$rankingsByFixture[$key];
+                }elseif(trim((string)($source['stage']??''))==='คัดเลือก'
+                    &&(int)($source['heat']??0)===$heat){
+                    // Compatible with the existing official results screen:
+                    // it already displays qualifying rankings seeded in events
+                    // when no Staff result has superseded the same fixture.
+                    $legacy=json_decode((string)($source['ranking_json']??''),true);
+                    if(is_array($legacy))$preliminaryRankings[$heat]=$legacy;
+                }
             }
             $qualifiedFinal=bang1_qualifying_final_entries($regs,$preliminaryRankings);
         }
@@ -175,7 +184,7 @@ function event_schedule_data(): array {
                         &&trim((string)($ranks['3']??''))!=='')$completed++;
                 }
                 $line['QualificationSavedHeats']=$ready?2:$completed;
-                $line['QualificationRequiredHeats']=2;
+                $line['QualificationRequiredHeats']=count($sizes)===2?2:count($sizes);
                 $line['CompetitionRound']=$ready?'ชิงชนะเลิศ':'รอผลการแข่งขันรอบคัดเลือก';
                 $line['entries']=$ready?$qualifiedFinal:[];
                 $line['RegisteredTeams']=$ready?6:0;

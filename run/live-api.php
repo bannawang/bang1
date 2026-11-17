@@ -526,8 +526,10 @@ function live_dataset(bool $manager=false,?string $sportFixtureKey=null):array {
         $key=live_competition_key($r,$round);
         // Upgrade stored Active selections from both earlier per-heat formats
         // without changing or clearing the persisted selection/check-ins.
-        $legacyToCurrent[live_group_key($r)]=$key;
-        $legacyToCurrent[live_legacy_group_key($r)]=$key;
+        if(!$qualifiedFinal){
+            $legacyToCurrent[live_group_key($r)]=$key;
+            $legacyToCurrent[live_legacy_group_key($r)]=$key;
+        }
         $heat=max(1,(int)($r['heat']??1));
         $slotKey=live_event_order_key($r).'|'.$round.'|'.$heat;
         $slot=$heatSlots[$slotKey]??null;

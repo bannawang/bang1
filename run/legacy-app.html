@@ -6567,7 +6567,7 @@ function onScheduleRowClick(e) {
   // แถวนี้จะไม่สามารถยุบ/ขยายได้ (ไม่มี action ใด ๆ)
   const teamCell = tr.children[3];
   const teamTextInRow = teamCell ? teamCell.textContent.trim() : '';
-  if (teamTextInRow === 'รอผลการแข่งขันรอบคัดเลือก') {
+  if (teamTextInRow.startsWith('รอผลการแข่งขันรอบคัดเลือก')) {
     return;
   }
 
@@ -6780,7 +6780,7 @@ function buildProgramHtml(programItems) {
     }
 
     // เงื่อนไขรอผลการแข่งขันรอบคัดเลือก (F = คัดเลือก, K = ชิงชนะเลิศ)
-    const waitingFinal = (roundF === 'คัดเลือก' && stageK === 'ชิงชนะเลิศ');
+    const waitingFinal = item.SlotStatus === 'waiting';
 
     // เป็นรอบชิงชนะเลิศหรือไม่ (ใช้กับสีเขียวในหัวบรรทัด)
     const isFinalRound = (displayRemark === 'ชิงชนะเลิศ');
@@ -6919,6 +6919,7 @@ function printScheduleProgram() {
           Remark: ev.Remark || '',  // F
           Stage: ev.Stage  || '',   // K
           RegisteredTeams: teamCount,
+          SlotStatus: ev.SlotStatus || '',
           schools: list.map(d => ({
             SchoolName: d.SchoolName || '',
             Lane: d.Lane || '',
