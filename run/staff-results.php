@@ -43,10 +43,21 @@ function staff_result_fixture_rows(): array {
             $schools=array_keys($allowed);
             sort($schools,SORT_NATURAL);
         } else {
-            // For a separate final fixture, enrolled schools are the safe upper
-            // bound; selection of finalists is still decided by officials.
-            $schools=$allSchools;
+            // The final accepts ONLY verified top-three finishers of each
+            // preliminary heat; other enrolled schools are not eligible.
+            if($round==='ชิงชนะเลิศ' && trim((string)($fixture['HeatPlan']??''))==='ชิง'){
+                $schoolSet=[];
+                foreach($fixture['entries']??[] as $qualifier){
+                    $name=trim((string)($qualifier['SchoolName']??''));
+                    if($name!=='')$schoolSet[$name]=true;
+                }
+                $schools=array_keys($schoolSet);
+                sort($schools,SORT_NATURAL);
+            }else{
+                $schools=$allSchools;
+            }
         }
+        $pendingQualifiers=(bool)($fixture['QualificationPending']??false);
         $saved=$savedByKey[$key]??null;
         $ranks=[];
         if($saved){
@@ -79,7 +90,9 @@ function staff_result_fixture_rows(): array {
             'fixtureKey'=>$key,'schools'=>$schools,
             'registeredSchools'=>count($allSchools),
             'isSaved'=>$isSaved,'ranks'=>$cleanRanks,
-            'pendingDraw'=>$requiresDraw && !$schools,
+            'pendingDraw'=>($requiresDraw && !$schools)||$pendingQualifiers,
+            'pendingQualifiers'=>$pendingQualifiers,
+            'finalists'=>$pendingQualifiers?[]:($round==='ชิงชนะเลิศ'&&trim((string)($fixture['HeatPlan']??''))==='ชิง'?($fixture['entries']??[]):[]),
             'updatedAt'=>$saved['updated_at']??null,
             'updatedBy'=>$saved['staff_name']??null,
         ];

@@ -20,7 +20,7 @@ function event_is_final(array $e): bool {
         || ($remark==='คัดเลือก' && $stage==='ชิงชนะเลิศ');
 }
 function event_registration_rows(): array {
-    return rows('SELECT id,event_id,event_name,category,level,school_name,runner_names,heat,lane FROM registrations ORDER BY id');
+    return rows('SELECT id,event_id,event_name,category,level,school_name,runner_ids,runner_names,photos,heat,lane FROM registrations ORDER BY id');
 }
 function event_group_rows(array $e): array {
     return rows('SELECT * FROM events WHERE name=? AND category <=> ? AND level <=> ? AND gender <=> ? ORDER BY source_order,id',[
@@ -71,8 +71,16 @@ function event_lanes(int $count): array {
 }
 /** Schedule is based on imported setup until there are registrations. */
 function event_schedule_data(): array {
+    require_once __DIR__.'/final-qualification.php';
     $events=rows('SELECT * FROM events ORDER BY source_order,id');
     $registrations=event_registration_rows();
+    // Read-only lookup: official heat results, not the old imported worksheet.
+    $officialResults=rows("SELECT event_id,heat_no,ranking_json FROM event_results WHERE round_type='คัดเลือก'");
+    $rankingsByFixture=[];
+    foreach($officialResults as $official){
+        $parsed=json_decode((string)($official['ranking_json']??''),true);
+        if(is_array($parsed))$rankingsByFixture[(int)$official['event_id'].'|'.(int)$official['heat_no']]=$parsed;
+    }
     $groups=[];
     foreach($events as $ev)$groups[event_key($ev)][]=$ev;
     $result=[];
@@ -131,6 +139,21 @@ function event_schedule_data(): array {
             $line['RegisteredTeams']=count($schoolNames);
             $result[]=$line;
         }
+        // A two-heat qualifier sends exactly three schools from each heat.
+        // Wait until BOTH official heat results are saved and match the draw.
+        // For three or more heats, no automatic promotion is attempted:
+        // three qualifiers per heat would exceed an eight-lane final.
+        $qualifiedFinal=[];
+        if(!$directFinal && count($sizes)===2 && count($finals)>0){
+            $preliminaryRankings=[];
+            foreach($sizes as $i=>$_size){
+                $source=$prelims[min($i,count($prelims)-1)];
+                $heat=$i+1;
+                $key=(int)$source['id'].'|'.$heat;
+                if(isset($rankingsByFixture[$key]))$preliminaryRankings[$heat]=$rankingsByFixture[$key];
+            }
+            $qualifiedFinal=bang1_qualifying_final_entries($regs,$preliminaryRankings);
+        }
         // Hide preconfigured separate final fixtures when the event is already a direct final.
         if(!$directFinal){
             foreach($finals as $ev){
@@ -143,9 +166,11 @@ function event_schedule_data(): array {
                 $line['TeamCount']=null;
                 $line['TotalTeams']=$teams;
                 $line['SchoolCount']=$teams;
-                $line['CompetitionRound']='รอผลการแข่งขันรอบคัดเลือก';
-                $line['entries']=[];
-                $line['RegisteredTeams']=0;
+                $ready=count($qualifiedFinal)===6;
+                $line['CompetitionRound']=$ready?'ชิงชนะเลิศ':'รอผลการแข่งขันรอบคัดเลือก';
+                $line['entries']=$ready?$qualifiedFinal:[];
+                $line['RegisteredTeams']=$ready?6:0;
+                $line['QualificationPending']=!$ready;
                 $result[]=$line;
             }
         }
