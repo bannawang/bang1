@@ -18,7 +18,7 @@ runner_assert(bang1_runner_registration_member_count('5') === 1, 'Individual mem
 runner_assert(bang1_runner_delete_block_reason(false, false, 0) === null, 'Unregistered athlete must be deletable');
 runner_assert(bang1_runner_delete_block_reason(false, false, 1) === null, 'Unscored solo athlete must be deletable');
 runner_assert(bang1_runner_delete_block_reason(true, false, 1) !== null, 'Do not erase scored athlete');
-runner_assert(bang1_runner_delete_block_reason(false, true, 1) !== null, 'Do not erase checked-in athlete');
+runner_assert(bang1_runner_delete_block_reason(false, true, 1) === null, 'Unscored checked-in solo athlete can be withdrawn with its check-in');
 runner_assert(bang1_runner_delete_block_reason(false, false, 4) !== null, 'Do not cancel teammate entries');
 foreach (['รอตรวจสอบ', 'ผ่านการตรวจสอบ', 'รอตรวจภาพอีกครั้ง', 'ไม่ผ่านการตรวจสอบ'] as $status) {
     runner_assert(bang1_runner_status_after_edit('details',$status,true)==='รอตรวจสอบ','Athlete corrections must re-enter review');
