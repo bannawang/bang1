@@ -77,14 +77,24 @@ assert(app.includes("new MutationObserver"),'Scanner stops when leaving QR menu'
 assert(app.includes("if(document.hidden){stopCamera();closePicker();}"),
   'Camera and QR picker close on visibility loss');
 assert(app.includes("const control=final?"),'Final roster does not render checkboxes');
-assert(html.includes('id="bang1QrFile"')&&html.includes('id="bang1QrManual"'),
-  'Camera fallback paths are available');
+assert(!html.includes('id="bang1QrFile"')&&html.includes('id="bang1QrManual"'),
+  'Only numeric registration search remains; QR image upload removed');
+assert(!app.includes('decodeFile(event)')&&!app.includes("bang1QrFile"),
+  'No QR image upload code remains');
+assert(html.includes('inputmode="numeric" enterkeyhint="search"'),
+  'Registration number activates the mobile numeric keyboard');
+assert(html.includes('id="bang1PwaInstall"'),
+  'Compact PWA install entry exists');
+assert(html.includes('id="bang1QrStatus"')&&html.includes('data-kind="idle" hidden'),
+  'Idle status does not occupy screen space');
+assert(!html.includes('รายการเรียงตามกำหนดการแข่งขัน โดยรวมฮีท'),
+  'Long explanatory QR description removed');
 assert(html.includes('role-guidance.js?v=20261117-admin-qr-access'),
   'Role menu change busts browser cache');
-assert(html.includes('qr-checkin.js?v=20261117-custom-picker-v2'),
-  'QR custom selector JavaScript busts browser cache');
-assert(html.includes('qr-checkin.css?v=20261117-custom-picker-v2'),
-  'QR custom selector CSS busts browser cache');
+assert(html.includes('qr-checkin.js?v=20261117-mobile-clean-v3'),
+  'Compact QR JavaScript busts browser cache');
+assert(html.includes('qr-checkin.css?v=20261117-mobile-clean-v3'),
+  'Compact QR CSS busts browser cache');
 
 const css=fs.readFileSync('run/qr-checkin.css','utf8');
 assert(css.includes('#page-qr-checkin .bang1-qr-native{display:none!important}'),
@@ -111,4 +121,10 @@ assert.equal(vm.runInContext('isPendingFinal(items[2])',ctx),true,
   'Unready finals are distinguishable from selectable events');
 assert.equal(vm.runInContext('isReadyFinal(items[0])',ctx),true,
   'Qualifying results populate a ready final row');
-console.log('PASS: custom QR picker, event order, round search, safe pending finals, shared check-in and camera cleanup');
+assert(css.includes('#page-qr-checkin .bang1-qr-scan-primary'),
+  'Prominent phone-first scan button');
+assert(css.includes('min-height:82px')&&css.includes('width:30px;height:30px'),
+  'Large row and check target on smartphone');
+assert(css.includes('body:has(#page-qr-checkin.active) .site-footer'),
+  'Phone QR view hides the fixed footer');
+console.log('PASS: compact mobile QR chooser, no image upload, numeric lookup, camera and shared check-ins');

@@ -1,19 +1,32 @@
 {
   "id": "/bang1/run/",
-  "name": "Bang1 Athletics — กรีฑาบางละมุง 1",
-  "short_name": "Bang1 Athletics",
+  "name": "กรีฑาบางละมุง 1 | Bang1 Athletics",
+  "short_name": "Bang1 กรีฑา",
+  "description": "ระบบบริหารจัดการกรีฑาและเช็กชื่อนักกรีฑา กลุ่มโรงเรียนบางละมุง 1",
   "lang": "th",
   "start_url": "/bang1/run/",
   "scope": "/bang1/run/",
   "display": "standalone",
-  "background_color": "#f7f9fd",
+  "background_color": "#071a39",
   "theme_color": "#0a366b",
   "icons": [
     {
-      "src": "icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

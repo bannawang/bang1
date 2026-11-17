@@ -66,8 +66,20 @@ jobs:
           Deny from all
           </IfModule>
           EOF
-      - name: Install FTPS client
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+      - name: Install FTPS client and PWA icon renderer
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp librsvg2-bin
+      - name: Build installable PWA icons
+        shell: bash
+        run: |
+          set -euo pipefail
+          rsvg-convert --width=192 --height=192 run/icon.svg --output=run/icon-192.png
+          rsvg-convert --width=512 --height=512 run/icon.svg --output=run/icon-512.png
+          rsvg-convert --width=180 --height=180 run/icon.svg --output=run/icon-180.png
+          rsvg-convert --width=512 --height=512 run/icon-maskable.svg --output=run/icon-maskable-512.png
+          for icon in run/icon-192.png run/icon-512.png run/icon-180.png run/icon-maskable-512.png; do
+            test -s "$icon"
+            test "$(file -b --mime-type "$icon")" = "image/png"
+          done
       - name: Secure upload to restricted FTP root /bang1/
         shell: bash
         run: |
@@ -144,6 +156,20 @@ jobs:
             jq -e '.success == true and (.fixture.key | type == "string") and (.schools|length == 10) and (.schools | all(.athletes | type == "array"))' /tmp/bang1-sport-check.json >/dev/null
             jq '{sport_fixture:.fixture.eventNumberLabel,school_columns:(.schools|length)}' /tmp/bang1-sport-check.json
           fi
+      - name: Verify PWA manifest and raster icons on deployed host
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${PUBLIC_BASE_URL:-https://www.bannawang.ac.th/bang1/run}"
+          curl --fail-with-body --location --silent --show-error --retry 2 \
+            "${BASE%/}/manifest.webmanifest" > /tmp/bang1-pwa-manifest.json
+          jq -e '.display == "standalone" and (.icons | map(.sizes) | index("192x192") != null) and (.icons | map(.sizes) | index("512x512") != null) and (.icons | any(.purpose == "maskable"))' /tmp/bang1-pwa-manifest.json >/dev/null
+          for name in icon-192.png icon-512.png icon-180.png icon-maskable-512.png; do
+            curl --fail-with-body --location --silent --show-error --retry 2 \
+              "${BASE%/}/${name}" -o "/tmp/bang1-${name}"
+            test "$(file -b --mime-type "/tmp/bang1-${name}")" = "image/png"
+          done
+          echo "PASS PWA manifest and four raster icons on production"
       - name: Probe Drive upload bridge from production host (no real file upload)
         shell: bash
         run: |

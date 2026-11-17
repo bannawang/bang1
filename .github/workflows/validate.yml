@@ -50,6 +50,8 @@ jobs:
         run: php .github/scripts/test_qr_checkin_rules.php
       - name: Manager QR scanner permissions and shared attendance regression
         run: node .github/scripts/test_qr_checkin_client.js
+      - name: PWA installability and icon regression
+        run: node .github/scripts/test_pwa_install.js
       - name: Manager LIVE final qualification picker refresh regression
         run: node .github/scripts/test_live_qualified_picker.js
       - name: Locked preliminary selection and immutable registration regression
