@@ -1566,7 +1566,7 @@ body{
 <link rel="stylesheet" href="role-guidance.css?v=20261108-roles">
 <link rel="stylesheet" href="mobile-shell.css?v=20261110-bnw-website-link">
 <link rel="stylesheet" href="live-manager.css?v=20261117-prelim-edit-final-readonly5">
-<link rel="stylesheet" href="qr-checkin.css?v=20261117-qr-v1">
+<link rel="stylesheet" href="qr-checkin.css?v=20261117-custom-picker-v2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@600;700;800;900&amp;display=swap" rel="stylesheet">
@@ -4070,8 +4070,37 @@ function printRegSummary() {
         <div class="card bang1-qr-card">
           <div class="card-header"><div class="card-title">1. เลือกรายการแข่งขัน</div><div class="tag">เชื่อมกับจอ LIVE</div></div>
           <p class="bang1-qr-help">รายการเรียงตามกำหนดการแข่งขัน โดยรวมฮีทของรายการเดียวกันไว้ในตัวเลือกเดียว เมื่อเลือกรายการจะเปลี่ยนรายการ Active บนจอ LIVE เช่นเดียวกับเมนูเช็กรายงานตัว</p>
-          <label for="bang1QrFixture" class="bang1-qr-label">รายการแข่งขันที่ต้องการเช็กชื่อ</label>
-          <select id="bang1QrFixture" class="bang1-qr-select"><option value="">กำลังโหลดรายการ...</option></select>
+          <div class="bang1-qr-label">รายการแข่งขันที่ต้องการเช็กชื่อ</div>
+          <div class="bang1-fixture-control" id="bang1QrFixtureControl">
+            <select id="bang1QrFixture" class="bang1-qr-native" tabindex="-1" aria-hidden="true"><option value="">กำลังโหลดรายการ...</option></select>
+            <button type="button" id="bang1QrFixtureTrigger" class="bang1-fixture-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="bang1QrFixtureList" aria-label="เลือกการแข่งขันสำหรับสแกน QR">
+              <span class="bang1-fixture-trigger-icon" aria-hidden="true">🏟️</span>
+              <span class="bang1-fixture-trigger-copy">
+                <strong id="bang1QrFixtureCurrentTitle">เลือกรายการแข่งขัน</strong>
+                <small id="bang1QrFixtureCurrentDetail">ค้นหาและเลือกการแข่งขันก่อนสแกน QR</small>
+              </span>
+              <span class="bang1-fixture-trigger-chevron" aria-hidden="true">⌄</span>
+            </button>
+          </div>
+          <div id="bang1QrFixturePopover" class="bang1-fixture-popover" hidden>
+            <div class="bang1-fixture-popover-header">
+              <div class="bang1-fixture-popover-title">
+                <strong>🏃 เลือกรายการแข่งขัน</strong>
+                <button type="button" class="bang1-fixture-close" id="bang1QrFixtureClose" aria-label="ปิดตัวเลือกรายการแข่งขัน">✕</button>
+              </div>
+              <label class="bang1-fixture-search-wrap" for="bang1QrFixtureSearch">
+                <span aria-hidden="true">⌕</span>
+                <input type="search" id="bang1QrFixtureSearch" placeholder="ค้นหาหมายเลขรายการ ระยะทาง รุ่นอายุ..." autocomplete="off">
+              </label>
+              <div class="bang1-fixture-filters" role="group" aria-label="กรองรอบการแข่งขัน">
+                <button type="button" data-round="all" class="is-active" aria-pressed="true">ทั้งหมด</button>
+                <button type="button" data-round="prelim" aria-pressed="false">รอบคัดเลือก</button>
+                <button type="button" data-round="final" aria-pressed="false">รอบชิง</button>
+              </div>
+            </div>
+            <div class="bang1-fixture-option-list" id="bang1QrFixtureList" role="listbox" aria-label="รายการแข่งขันสำหรับเช็กชื่อด้วย QR" tabindex="-1"></div>
+            <div class="bang1-fixture-popover-footer" id="bang1QrFixtureResults" role="status" aria-live="polite">กำลังโหลดรายการแข่งขัน</div>
+          </div>
           <div id="bang1QrActive" class="bang1-qr-active">ยังไม่ได้เลือกรายการแข่งขัน</div>
         </div>
         <div class="card bang1-qr-card">
@@ -8388,6 +8417,6 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="vendor/qrcode.js?v=20261109-print-qr"></script>
 <script src="vendor/jsQR.js?v=20261117-qr-v1"></script>
 <script src="live-manager.js?v=20261117-prelim-edit-final-readonly5"></script>
-<script src="qr-checkin.js?v=20261117-admin-qr-access"></script>
+<script src="qr-checkin.js?v=20261117-custom-picker-v2"></script>
 </body>
 </html>
