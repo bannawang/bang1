@@ -35,10 +35,10 @@
       return {allowed:false, reason:'รุ่น 6 ปีสงวนสำหรับนักเรียนอนุบาล ไม่เปิดให้ประถมหรือมัธยมสมัคร'};
     }
     if (group === 'ประถม') {
-      // A primary pupil aged 7 can join the under-8 event only; preserve every other bracket.
-      if (level === 'ประถม' && ((age >= 8 && age <= 12) || (age === 7 && max === 8))) return {allowed:true, reason:''};
+      // Primary pupils aged 6–7 may join the 8-year event; never the kindergarten 6-year event.
+      if (level === 'ประถม' && ((age >= 8 && age <= 12) || (age >= 6 && age <= 7 && max === 8))) return {allowed:true, reason:''};
       if (level === 'มัธยม' && age === 12 && max === 12) return {allowed:true, reason:''};
-      return {allowed:false, reason:'รุ่น 8–12 ปีสำหรับประถมอายุ 8–12 ปี (ประถมอายุ 7 ปีสมัครรุ่น 8 ปีได้; ยกเว้นมัธยมอายุ 12 ปีสมัครรุ่น 12 ปีได้)'};
+      return {allowed:false, reason:'รุ่น 8–12 ปีสำหรับนักเรียนประถม (ประถมอายุ 6–7 ปีสมัครรุ่น 8 ปีได้; มัธยมอายุ 12 ปีสมัครรุ่น 12 ปีได้)'};
     }
     if (group === 'มัธยม') {
       // Primary pupils aged 8–12 may move UP to 14/16-year events.
