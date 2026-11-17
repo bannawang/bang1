@@ -74,7 +74,8 @@ assert(app.includes("typeof window.jsQR!=='function'"),
 assert(app.includes("stream.getTracks().forEach(track=>track.stop())"),
   'Camera tracks stop when leaving scanner');
 assert(app.includes("new MutationObserver"),'Scanner stops when leaving QR menu');
-assert(app.includes("if(document.hidden)stopCamera()"),'Camera stops on visibility loss');
+assert(app.includes("if(document.hidden){stopCamera();closePicker();}"),
+  'Camera and QR picker close on visibility loss');
 assert(app.includes("const control=final?"),'Final roster does not render checkboxes');
 assert(html.includes('id="bang1QrFile"')&&html.includes('id="bang1QrManual"'),
   'Camera fallback paths are available');
