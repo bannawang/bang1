@@ -160,6 +160,21 @@ if($action==='save_runner'){
    json_out(['success'=>false,'message'=>$message],409);
  }
  if($old) {
+  // Identity becomes immutable once the athlete has been selected at the
+  // call point. Photo upload still works via the separate upload action.
+  $confirmed=single('SELECT registration_id FROM race_athlete_checkins WHERE athlete_key=? LIMIT 1',['runner:'.$id]);
+  if($confirmed){
+    $identityChanged=$level!==(string)$old['level']
+      ||$first!==(string)$old['first_name']
+      ||$last!==(string)$old['last_name']
+      ||$citizen!==(string)$old['citizen_id']
+      ||$year!==(int)$old['birth_year']
+      ||$gender!==(string)$old['gender'];
+    if($identityChanged)
+      json_out(['success'=>false,'message'=>'นักกรีฑารายนี้ยืนยันตัวลงแข่งขันแล้ว ไม่สามารถเปลี่ยนข้อมูลตัวบุคคลได้'],409);
+    json_out(['success'=>true,'id'=>$id,'status'=>$old['status'],
+      'message'=>'ข้อมูลนักกรีฑาที่ยืนยันตัวลงแข่งขันถูกล็อกไว้แล้ว']);
+  }
   db()->prepare('UPDATE runners SET level=?,first_name=?,last_name=?,citizen_id=?,birth_year=?,gender=?,status="รอตรวจสอบ",fail_reason="" WHERE id=?')->execute([$level,$first,$last,$citizen,$year,$gender,$id]);
   $code='RUNNER_UPDATE';
  } else {
@@ -181,6 +196,14 @@ if($action==='delete_runner'){
     // Current single-athlete entries without results may be cancelled together.
     $regs=rows('SELECT id,event_id,event_name,category,level,runner_ids FROM registrations WHERE FIND_IN_SET(?,REPLACE(runner_ids," ",""))>0 FOR UPDATE',[$id]);
     foreach($regs as $reg){
+      $memberIds=array_map('trim',explode(',',(string)$reg['runner_ids']));
+      $index=array_search((string)$id,$memberIds,true);
+      $slotKey='slot:'.($index===false?0:$index+1);
+      $checkedRunner=single('SELECT registration_id FROM race_athlete_checkins
+        WHERE registration_id=? AND athlete_key IN (?,?) LIMIT 1',
+        [$reg['id'],'runner:'.$id,$slotKey]);
+      if($checkedRunner)throw new DomainException(
+        'นักกรีฑารายนี้ได้รับการยืนยันตัวลงแข่งขันแล้ว ไม่สามารถลบหรือเปลี่ยนตัวได้');
       $hasResult=single('SELECT er.id FROM event_results er LEFT JOIN events e ON e.id=er.event_id
         WHERE er.event_id=? OR (e.name=? AND e.category <=> ? AND e.level <=> ?) LIMIT 1',
         [$reg['event_id'],$reg['event_name'],$reg['category'],$reg['level']])!==null;
@@ -327,6 +350,19 @@ if($action==='save_registration'){
   $old=$id?single('SELECT * FROM registrations WHERE id=?',[$id]):null;
  if($id&&!$old)json_out(['success'=>false,'message'=>'ไม่พบใบสมัคร'],404);
  if($old)school_access($u,$old['school_name']);
+ if($old){
+   $locked=single('SELECT registration_id FROM race_athlete_checkins WHERE registration_id=? LIMIT 1',[$id]);
+   if($locked){
+     $sameRunners=trim((string)$old['runner_ids'])===implode(',',$ids);
+     $sameRace=(string)$old['event_name']===(string)$ev['name']
+       &&(string)$old['category']===(string)$ev['category']
+       &&(string)$old['level']===(string)$ev['level'];
+     if(!$sameRunners||!$sameRace){
+       $pdo->rollBack();
+       json_out(['success'=>false,'message'=>'ยืนยันตัวลงแข่งขันแล้ว ไม่สามารถเปลี่ยนรายชื่อนักกรีฑาในใบสมัครได้'],409);
+     }
+   }
+ }
  $dup=single('SELECT id FROM registrations WHERE event_name=? AND category <=> ? AND level <=> ? AND school_name=? AND id<>? LIMIT 1',[$ev['name'],$ev['category'],$ev['level'],$school,$id]);
  if($dup)json_out(['success'=>false,'message'=>'โรงเรียนสมัครรายการนี้แล้ว'],409);
  if(bang1_event_school_limit((string)$ev['name'])!==null){
@@ -369,7 +405,10 @@ if($action==='delete_registration'){
  must_post();require_editor($u);require_feature('รับสมัครรายการวิ่ง');
  $id=(int)($input['id']??0);$old=single('SELECT * FROM registrations WHERE id=?',[$id]);
  if(!$old)json_out(['success'=>false,'message'=>'ไม่พบใบสมัคร'],404);
- school_access($u,$old['school_name']);db()->prepare('DELETE FROM registrations WHERE id=?')->execute([$id]);
+ school_access($u,$old['school_name']);
+ if(single('SELECT registration_id FROM race_athlete_checkins WHERE registration_id=? LIMIT 1',[$id]))
+   json_out(['success'=>false,'message'=>'ยืนยันตัวลงแข่งขันแล้ว ไม่สามารถลบใบสมัครได้'],409);
+ db()->prepare('DELETE FROM registrations WHERE id=?')->execute([$id]);
  log_action('REG_DELETE',$u,'Registration',(string)$id);json_out(['success'=>true]);
 }
 if($action==='schedule'){
