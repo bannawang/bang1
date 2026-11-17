@@ -182,9 +182,9 @@
     buttons[next].focus({preventScroll:true});
     buttons[next].scrollIntoView({block:'nearest'});
   }
-  function athleteCard(athlete,regId,slotsFull=false){
+  function athleteCard(athlete,regId,slotsFull=false,finalReadOnly=false){
     const checked=Boolean(athlete.checkedAt);
-    const disabled=slotsFull&&!checked;
+    const disabled=finalReadOnly||(slotsFull&&!checked);
     const photo=athlete.photo
       ?'<img src="'+esc(athlete.photo)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=&quot;none&quot;">'
       :'<span class="bang1-avatar-fallback" aria-hidden="true">🏃</span>';
@@ -195,11 +195,13 @@
       '<span class="bang1-athlete-photo">'+photo+'</span>'+
       '<span class="bang1-athlete-info"><strong>'+esc(athlete.name)+'</strong>'+
        '<small>'+(checked?'✓ รายงานตัวแล้ว '+esc(athlete.checkedAt):
-         disabled?'เต็มจำนวนแล้ว · ยกเลิกชื่อเดิมก่อน':'ยังไม่รายงานตัว')+'</small></span>'+
+         finalReadOnly?'ผ่านเข้ารอบชิง · รอเปิดการรายงานตัวรอบชิง':
+        disabled?'เต็มจำนวนแล้ว · ยกเลิกชื่อเดิมก่อน':'ยังไม่รายงานตัว')+'</small></span>'+
       '<span class="bang1-athlete-status'+(checked?' confirmed':'')+'">'+(checked?'✓':'○')+'</span>'+
       '</label>';
   }
   function teamMarkup(team){
+    const finalReadOnly=team.qualifiedFinal===true;
     const limit=Number(team.totalAthletes)||1;
     const checked=Number(team.checkedAthletes)||0;
     const full=checked>=limit;
@@ -208,9 +210,9 @@
       '<header><div><strong>'+esc(team.school)+'</strong><small>ใบสมัคร #'+Number(team.regId)+
       (team.heat?' · ฮีท '+Number(team.heat):'')+
       (team.lane?' · ลู่ '+Number(team.lane):'')+'</small></div>'+
-      '<span>'+checked+' / '+limit+' คน</span></header>'+
+      '<span>'+(finalReadOnly?'ผ่านเข้ารอบชิง':checked+' / '+limit+' คน')+'</span></header>'+
       (over?'<div class="bang1-oversubscribed">⚠️ มีการติ๊กเกินจำนวนที่กำหนด '+over+' คน กรุณาตรวจสอบ</div>':'')+
-      '<div class="bang1-athlete-list">'+team.athletes.map(a=>athleteCard(a,team.regId,full)).join('')+'</div>'+
+      '<div class="bang1-athlete-list">'+team.athletes.map(a=>athleteCard(a,team.regId,full,finalReadOnly)).join('')+'</div>'+
       '</section>';
   }
   function renderRoster(force=false){
@@ -226,7 +228,9 @@
       area.innerHTML='<div class="bang1-roster-empty">ยังไม่ได้เปิดรายการ Active · โปรดเลือกการแข่งขันด้านบน</div>';
       el('bang1CheckinCount').textContent='0 / 0 รายงานตัว';return;
     }
-    el('bang1CheckinCount').textContent=Number(active.checked)+' / '+Number(active.total)+' รายงานตัว';
+    el('bang1CheckinCount').textContent=active.qualifiedFinal
+      ?'ผ่านเข้ารอบชิง '+Number(active.teams)+' โรงเรียน · แสดงรายชื่อโดยยังไม่เปิดเช็กชื่อรอบชิง'
+      :Number(active.checked)+' / '+Number(active.total)+' รายงานตัว';
     const term=filter.toLocaleLowerCase('th').trim();
     const visible=teams.map(team=>{
       const athletes=(team.athletes||[]).filter(a=>!term||

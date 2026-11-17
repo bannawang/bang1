@@ -12,6 +12,7 @@ if (!isset($action)) { http_response_code(403); exit; }
 // The public and manager Live boards must use the same officially generated
 // competition schedule as the event list and Staff result entry.
 require_once __DIR__.'/event-management.php';
+require_once __DIR__.'/live-final-qualification.php';
 require_once __DIR__.'/champion-history.php';
 require_once __DIR__.'/school-branding.php';
 
@@ -503,7 +504,9 @@ function live_dataset(bool $manager=false,?string $sportFixtureKey=null):array {
             ];
         }
     }
-    $registrations=rows('SELECT id,event_id,event_name,category,level,school_name,runner_ids,runner_names,photos,gender,heat,lane FROM registrations ORDER BY id');
+    $sourceRegistrations=rows('SELECT id,event_id,event_name,category,level,school_name,runner_ids,runner_names,photos,gender,heat,lane FROM registrations ORDER BY id');
+    $virtualFinals=bang1_live_final_registration_rows($schedule,$sourceRegistrations);
+    $registrations=array_merge($sourceRegistrations,$virtualFinals);
     $runnerMap=[];
     foreach(rows('SELECT id,school_name,first_name,last_name,photo_url FROM runners') as $r)
         $runnerMap[(int)$r['id']]=$r;
@@ -515,19 +518,25 @@ function live_dataset(bool $manager=false,?string $sportFixtureKey=null):array {
         rows('SELECT id,name,nickname,logo_file,live_position FROM schools ORDER BY id'),$registrations);
     $fixtures=[];$teamsByKey=[];$legacyToCurrent=[];
     foreach($registrations as $r){
+        $qualifiedFinal=($r['_qualified_final']??false)===true;
         $ord=$order[live_event_order_key($r)]??null;
-        $oldEventId=(int)($ord['eventId']??$r['event_id']??0);
-        $round=live_fixture_round($oldEventId,$r,$roundIndex);
+        $oldEventId=$qualifiedFinal?(int)$r['_final_event_id']:
+            (int)($ord['eventId']??$r['event_id']??0);
+        $round=$qualifiedFinal?'รอบชิง':live_fixture_round($oldEventId,$r,$roundIndex);
         $key=live_competition_key($r,$round);
         // Upgrade stored Active selections from both earlier per-heat formats
         // without changing or clearing the persisted selection/check-ins.
-        $legacyToCurrent[live_group_key($r)]=$key;
-        $legacyToCurrent[live_legacy_group_key($r)]=$key;
+        if(!$qualifiedFinal){
+            $legacyToCurrent[live_group_key($r)]=$key;
+            $legacyToCurrent[live_legacy_group_key($r)]=$key;
+        }
         $heat=max(1,(int)($r['heat']??1));
         $slotKey=live_event_order_key($r).'|'.$round.'|'.$heat;
         $slot=$heatSlots[$slotKey]??null;
-        $eventId=(int)($slot['eventId']??$r['event_id']??$oldEventId);
-        $sortOrder=(int)($slot['order']??$ord['order']??999999);
+        $eventId=$qualifiedFinal?(int)$r['_final_event_id']:
+            (int)($slot['eventId']??$r['event_id']??$oldEventId);
+        $sortOrder=$qualifiedFinal?(int)$r['_final_order']:
+            (int)($slot['order']??$ord['order']??999999);
         if(!isset($fixtures[$key])){
             $fixtures[$key]=[
                 'key'=>$key,
@@ -541,6 +550,7 @@ function live_dataset(bool $manager=false,?string $sportFixtureKey=null):array {
                 'heat'=>$heat,
                 'heats'=>[],
                 'round'=>$round,
+                'qualifiedFinal'=>$qualifiedFinal,
                 'order'=>$sortOrder,
                 'total'=>0,'checked'=>0,'teams'=>0,'teamsReady'=>0
             ];
@@ -550,9 +560,11 @@ function live_dataset(bool $manager=false,?string $sportFixtureKey=null):array {
         if($eventId>0&&!in_array($eventId,$fixtures[$key]['eventIds'],true))
             $fixtures[$key]['eventIds'][]=$eventId;
         $fixtures[$key]['order']=min($fixtures[$key]['order'],$sortOrder);
-        $athletes=live_athlete_rows($r,$runnerMap,$checks);
+        // A final's borrowed registrations must never inherit preliminary
+        // attendance: those check-ins identify a different competition round.
+        $athletes=live_athlete_rows($r,$runnerMap,$qualifiedFinal?[]:$checks);
         $capacity=live_attendance_capacity($r);
-        $present=live_counted_attendees($athletes,$capacity);
+        $present=$qualifiedFinal?[]:live_counted_attendees($athletes,$capacity);
         $allChecked=count(array_filter($athletes,static fn($a)=>$a['checkedAt']!==null));
         $fixtures[$key]['total']+=$capacity;
         $fixtures[$key]['checked']+=count($present);
@@ -563,15 +575,19 @@ function live_dataset(bool $manager=false,?string $sportFixtureKey=null):array {
             'school'=>(string)$r['school_name'],
             'lane'=>$r['lane']===null?null:(int)$r['lane'],
             'heat'=>$heat,
+            'qualifiedFinal'=>$qualifiedFinal,
             'totalAthletes'=>$capacity,
             'checkedAthletes'=>count($present),
             'registeredAthletes'=>count($athletes),
             // Display any legacy over-limit check-ins to managers for correction.
             'excessCheckins'=>max(0,$allChecked-$capacity)
         ];
-        $team['athletes']=$manager?$athletes:
+        // Show official finalists (and their approved/public photos) on
+        // Check-in LIVE and Sport LIVE without claiming they checked in.
+        $team['athletes']=$qualifiedFinal?live_sport_candidates($athletes,$capacity):
+            ($manager?$athletes:
             ($sportFixtureKey!==null&&hash_equals($key,$sportFixtureKey)
-                ?live_sport_candidates($athletes,$capacity):$present);
+                ?live_sport_candidates($athletes,$capacity):$present));
         $teamsByKey[$key][]=$team;
     }
     foreach($fixtures as &$fixture){
@@ -637,7 +653,8 @@ function live_dataset(bool $manager=false,?string $sportFixtureKey=null):array {
         $columns[$columnIndex]['totalAthletes']+=(int)$team['totalAthletes'];
         $columns[$columnIndex]['checkedAthletes']+=(int)$team['checkedAthletes'];
         foreach($team['athletes'] as $athlete){
-            if($sportFixtureKey===null&&$athlete['checkedAt']===null)continue;
+            if($sportFixtureKey===null&&$athlete['checkedAt']===null
+                &&!($team['qualifiedFinal']??false))continue;
             $publicAthlete=[
                 'name'=>$athlete['name'],'photo'=>$athlete['photo'],
                 'regId'=>$team['regId'],'school'=>$team['school'],'heat'=>$team['heat'],
@@ -757,10 +774,15 @@ if($action==='live_runner_set'){
     $reg=single('SELECT * FROM registrations WHERE id=? LIMIT 1',[$regId]);
     if(!$reg)json_out(['success'=>false,'message'=>'ไม่พบใบสมัคร'],404);
     $state=live_dataset(true);
+    // Final rosters are display-only until an independent final-round
+    // check-in store exists; never change preliminary attendance by mistake.
+    if(($state['active']['qualifiedFinal']??false)===true)
+        json_out(['success'=>false,'message'=>'รายชื่อผู้ผ่านเข้ารอบชิงแสดงเพื่อประชาสัมพันธ์เท่านั้น ยังไม่เปิดรายงานตัวรอบชิง'],409);
     $active=(string)($state['active']['key']??'');
     $available=array_merge($state['teams']??[],$state['nextTeams']??[]);
     $allowed=false;
-    foreach($available as $team)if((int)$team['regId']===$regId){$allowed=true;break;}
+    foreach($available as $team)if((int)$team['regId']===$regId
+        &&!($team['qualifiedFinal']??false)){$allowed=true;break;}
     if($active===''||!$allowed){
         json_out(['success'=>false,'message'=>'เช็กชื่อได้เฉพาะรายการ Active หรือรายการถัดไปเท่านั้น'],409);
     }

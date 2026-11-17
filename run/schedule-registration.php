@@ -131,8 +131,13 @@ function bang1_schedule_preview(array $fixtures,array $registrations):array {
         $row['RegistrationCount']=count($group['registrations']??[]);
         $row['FirstRegistrationAt']=(string)($group['firstAt']??'');
         $row['FirstRegistrationId']=(int)($group['firstId']??0);
-        $row['SlotStatus']='not_drawn';
         $row['entries']=is_array($row['entries']??null)?$row['entries']:[];
+        // A qualified final has an official participant list; it is not
+        // a provisional heat and must survive this schedule preview.
+        $ready=(string)($row['CompetitionRound']??'')==='ชิงชนะเลิศ'
+            && (string)($row['HeatPlan']??'')==='ชิง'
+            && count($row['entries'])===6;
+        $row['SlotStatus']=$ready?'final_ready':'not_drawn';
     }
     unset($row);
     $pending=0;

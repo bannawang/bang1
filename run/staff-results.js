@@ -105,7 +105,7 @@ function drawList(){
     '<small>'+esc(f.round)+' • ฮีท '+esc(f.heat)+' • '+esc(f.registeredSchools)+' โรงเรียน</small></span>'+
     '<span class="bang1-fixture-right">'+
     '<span class="bang1-fixture-state '+(f.isSaved?'saved':'pending')+'">'+
-    (f.isSaved?'บันทึกผลแล้ว':(f.pendingDraw?'รอจัดฮีท':'ยังไม่บันทึก'))+'</span><span aria-hidden="true">›</span></span></button>').join('')||
+    (f.isSaved?'บันทึกผลแล้ว':(f.pendingQualifiers?'รอผลคัดเลือก':(f.pendingDraw?'รอจัดฮีท':'ยังไม่บันทึก')))+'</span><span aria-hidden="true">›</span></span></button>').join('')||
     '<p class="bang1-empty-fixtures">ไม่มีรายการแข่งขันในสถานะนี้</p>';
 }
 function openDialog(item){
@@ -117,9 +117,13 @@ function openDialog(item){
   $('#bang1StaffScoreSubtitle').textContent=item.round+' • ฮีท '+item.heat+
     ' • '+item.registeredSchools+' โรงเรียนสมัคร';
   const hint=$('#bang1ScoreHint');
-  hint.textContent=item.pendingDraw
-    ?'ยังไม่มีการสุ่มฮีทและลู่สำหรับรายการนี้ กรุณาให้ Admin จัดฮีทก่อน'
-    :'เลือกโรงเรียนตามอันดับ โดยโรงเรียนที่เลือกแล้วจะไม่สามารถเลือกซ้ำในอันดับอื่นได้';
+  hint.textContent=item.pendingQualifiers
+    ?'รอบชิงรอผลอันดับ 1–3 จากทั้งสองฮีทก่อน จึงจะเปิดรายชื่อผู้ผ่านเข้ารอบ'
+    :item.pendingDraw
+      ?'ยังไม่มีการสุ่มฮีทและลู่สำหรับรายการนี้ กรุณาให้ Admin จัดฮีทก่อน'
+      :Array.isArray(item.finalists)&&item.finalists.length
+        ?'รายชื่อผู้ผ่านเข้ารอบชิง: '+item.finalists.map(x=>'ลู่ '+x.Lane+' '+x.SchoolName+' ('+x.RunnerName+')').join(' | ')
+        :'เลือกโรงเรียนตามอันดับ โดยโรงเรียนที่เลือกแล้วจะไม่สามารถเลือกซ้ำในอันดับอื่นได้';
   const fields=$('#bang1ScoreFields');
   fields.replaceChildren();
   for(let rank=1;rank<=8;rank++){
