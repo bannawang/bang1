@@ -42,6 +42,15 @@ expect_final($final['CompetitionRound']==='ชิงชนะเลิศ','Offi
 expect_final(count($final['entries']??[])===6,'Event 31 must have six finalists');
 expect_final(array_column($final['entries'],'Lane')===[2,3,4,5,6,7],'Wrong final lane allocation');
 expect_final(($final['QualificationPending']??null)===false,'Ready final still marked waiting');
+$fixtureRegs[]=['id'=>999,'event_id'=>23,'event_name'=>'วิ่ง 60 เมตร (6 ปี ชาย)',
+    'category'=>'วิ่งเดี่ยว','level'=>'อนุบาล','school_name'=>'โรงเรียนเข้ามาใหม่',
+    'runner_ids'=>'999','runner_names'=>'นักกรีฑารอจัดฮีท','photos'=>'',
+    'heat'=>0,'lane'=>null];
+$lateFinal=fixture31();
+expect_final($lateFinal['CompetitionRound']==='ชิงชนะเลิศ'
+    &&count($lateFinal['entries'])===6,
+    'New unassigned signup erased the already saved six-school final');
+array_pop($fixtureRegs);
 $fixtureResults=array_slice($fixtureResults,0,1);
 $pending=fixture31();
 expect_final($pending['CompetitionRound']==='รอผลการแข่งขันรอบคัดเลือก','Partial results must stay pending');

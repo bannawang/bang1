@@ -34,6 +34,38 @@ try {
   if($out['events']===0)$alerts[]='NO_EVENTS_IN_NORMALIZED_TABLE';
   if($stats['registrations_unlinked_event']>0)$alerts[]='UNLINKED_REGISTRATIONS';
   if($stats['runners_missing_name']>0)$alerts[]='MISSING_RUNNER_NAMES';
+  // Deployment-only aggregate diagnostic for the published two-heat final.
+  // No names, runner IDs, document URLs or photos are sent to workflow logs.
+  $event31Summary=null;
+  $finalEventStmt=db()->prepare('SELECT name,category,level FROM events WHERE id=? LIMIT 1');
+  $finalEventStmt->execute([31]);
+  $finalEvent=$finalEventStmt->fetch(PDO::FETCH_ASSOC);
+  if($finalEvent){
+    $heatStmt=db()->prepare('SELECT COALESCE(heat,0) heat, COUNT(*) entries, COUNT(DISTINCT school_name) schools
+        FROM registrations WHERE event_name=? AND category <=> ? AND level <=> ?
+        GROUP BY COALESCE(heat,0) ORDER BY heat');
+    $heatStmt->execute([$finalEvent['name'],$finalEvent['category'],$finalEvent['level']]);
+    $heatCounts=array_map(static fn($row)=>[
+      'heat'=>(int)$row['heat'],'entries'=>(int)$row['entries'],
+      'schools'=>(int)$row['schools']
+    ],$heatStmt->fetchAll(PDO::FETCH_ASSOC));
+    $savedStmt=db()->query("SELECT event_id,heat_no,ranking_json FROM event_results
+      WHERE event_id IN (23,24) AND round_type='คัดเลือก' ORDER BY event_id,heat_no");
+    $savedResults=[];
+    foreach($savedStmt->fetchAll(PDO::FETCH_ASSOC) as $item){
+      $ranks=json_decode((string)($item['ranking_json']??''),true);
+      $complete=is_array($ranks);
+      foreach([1,2,3] as $rank){
+        if(trim((string)($ranks[(string)$rank]??''))==='')$complete=false;
+      }
+      $savedResults[]=[
+        'event_id'=>(int)$item['event_id'],
+        'heat'=>(int)$item['heat_no'],
+        'complete_top_three'=>$complete
+      ];
+    }
+    $event31Summary=['heat_counts'=>$heatCounts,'official_heat_results'=>$savedResults];
+  }
   json_out([
     'success'=>true,
     'source_rows_total'=>$out['source_rows'],
@@ -42,6 +74,7 @@ try {
     'source_sheets'=>$sourceRows,
     'coach_roles'=>$roles,
     'alerts'=>$alerts,
+    'event31_qualifier_summary'=>$event31Summary,
     'note'=>'Counts only: no names, passwords or personal data in output',
   ]);
 } catch(Throwable $e) {

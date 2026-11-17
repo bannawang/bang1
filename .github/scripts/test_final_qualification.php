@@ -33,6 +33,12 @@ foreach($out as $entry){
 }
 final_assert(bang1_qualifying_final_entries($registrations,[1=>$results[1]])===[],
     'Incomplete heat results must remain pending');
+$late=$registrations;
+$late[]=['id'=>999,'heat'=>0,'school_name'=>'School-new-unassigned',
+    'runner_ids'=>'999','runner_names'=>'Awaiting draw','photos'=>''];
+$readyWithLate=bang1_qualifying_final_entries($late,$results);
+final_assert(count($readyWithLate)===6 && $readyWithLate===$out,
+    'A late unassigned school must not erase already qualified finalists');
 $invalid=$results;
 $invalid[2]['3']='School-H1-4';
 final_assert(bang1_qualifying_final_entries($registrations,$invalid)===[],

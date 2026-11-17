@@ -25,8 +25,11 @@ function bang1_qualifying_final_entries(array $registrations,array $rankingsByHe
     foreach($registrations as $entry){
         $heat=(int)($entry['heat']??0);
         $school=trim((string)($entry['school_name']??''));
-        // Finalists must come from existing registrations in one of two
-        // assigned preliminary heats; provisional draws never qualify anyone.
+        // Newly registered schools may still have heat=0 while the coaches
+        // are entering athletes. They cannot qualify without a completed
+        // preliminary heat, but must not erase previously saved top-three
+        // results for OTHER schools that completed their heats.
+        if($heat===0)continue;
         if(!in_array($heat,[1,2],true)||$school==='')return [];
         if(isset($schoolsByHeat[$heat][$school]))return [];
         $schoolsByHeat[$heat][$school]=$entry;
