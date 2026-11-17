@@ -762,7 +762,7 @@ if($action==='live_sport_fixture'){
         'formerChampion'=>champion_history_for_fixture($state['sportFixture'])
     ]);
 }
-if(!in_array($action,['live_manager_data','live_select','live_runner_set','live_display_set'],true))return;
+if(!in_array($action,['live_manager_data','live_select','live_runner_set','live_display_set','live_qr_lookup'],true))return;
 if(!isset($u)||!is_array($u))json_out(['success'=>false,'message'=>'กรุณาเข้าสู่ระบบ'],401);
 require_reviewer($u);
 require_live_checkin_access($u); // Enforce on data, event changes, mode changes and attendance writes.
@@ -772,6 +772,44 @@ if($action==='live_manager_data'){
     json_out(live_dataset(true));
 }
 must_post();
+
+/**
+ * Manager-only: resolve an existing printed QR to a registration belonging to
+ * the CURRENTLY active official LIVE fixture. Scanning alone never checks in
+ * a runner. No proof files, citizen IDs, or cross-fixture records are returned.
+ */
+if($action==='live_qr_lookup'){
+    if(($u['role']??'')!=='Manager'||($u['canLiveCheckin']??false)!==true)
+        json_out(['success'=>false,'message'=>'เฉพาะ Manager ที่ได้รับสิทธิ์เช็กชื่อด้วย QR เท่านั้น'],403);
+    require_once __DIR__.'/qr-checkin-rules.php';
+    $qr=bang1_qr_registration_locator((string)($input['qr']??''));
+    $fixtureKey=trim((string)($input['fixtureKey']??''));
+    if($qr===null||!preg_match('/^[a-f0-9]{64}$/D',$fixtureKey))
+        json_out(['success'=>false,'message'=>'ข้อมูล QR หรือรายการแข่งขันไม่ถูกต้อง'],422);
+    $state=live_dataset(true);
+    $active=(string)($state['active']['key']??'');
+    if($active===''||!hash_equals($active,$fixtureKey))
+        json_out(['success'=>false,'message'=>'รายการ LIVE เปลี่ยนไปแล้ว กรุณาเลือกรายการใหม่ก่อนสแกน'],409);
+    if(isset($qr['id']))
+        $reg=single('SELECT id FROM registrations WHERE id=? LIMIT 1',[$qr['id']]);
+    else
+        $reg=single('SELECT id FROM registrations WHERE registration_key=? LIMIT 1',[$qr['registration_key']]);
+    if(!$reg)json_out(['success'=>false,'message'=>'ไม่พบใบสมัครของ QR นี้'],404);
+    $team=null;
+    foreach(($state['teams']??[]) as $candidate){
+        if((int)($candidate['regId']??0)===(int)$reg['id']){$team=$candidate;break;}
+    }
+    if($team===null)
+        json_out(['success'=>false,'message'=>'ใบสมัครนี้ไม่อยู่ในรายการแข่งขันที่เลือกบน LIVE'],409);
+    log_action('LIVE_QR_LOOKUP',$u,'Registration',(string)$reg['id'],'QR lookup for active fixture');
+    json_out([
+        'success'=>true,
+        'registrationId'=>(int)$reg['id'],
+        'school'=>(string)$team['school'],
+        'fixtureKey'=>$active,
+        'team'=>$team
+    ]);
+}
 
 if($action==='live_display_set'){
     $mode=trim((string)($input['mode']??''));

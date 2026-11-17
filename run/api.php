@@ -86,7 +86,7 @@ if($action==='score_summary'){
 
 $u=require_user();
 // Only Manager/Admin can activate events or check in applications.
-if(in_array($action,['live_manager_data','live_select','live_runner_set','live_display_set'],true))
+if(in_array($action,['live_manager_data','live_select','live_runner_set','live_display_set','live_qr_lookup'],true))
     require __DIR__.'/live-api.php';
 authorize_athletics_action($u,$action);
 require __DIR__.'/admin-config.php';
