@@ -14,9 +14,9 @@
    ]
   },
   Manager:{
-   pages:['login','checkin','admin'],
+   pages:['login','checkin','qr-checkin','admin'],
    name:'Manager',
-   permission:'ตรวจสอบนักกรีฑา เลือกรายการแข่งขันที่กำลังแสดงบนจอ Live และติ๊กชื่อผู้ที่มารายงานตัวเป็นรายบุคคล',
+   permission:'ตรวจสอบนักกรีฑา เลือกรายการบนจอ Live และเช็กชื่อได้ทั้งจากรายชื่อและสแกน QR บนใบสมัคร',
    steps:[
     {icon:'🏟️',title:'เลือกรายการแข่งขัน',detail:'เปิดเมนูเช็กชื่อรายงานตัว แล้วเลือกรายการและฮีท',page:'checkin'},
     {icon:'📺',title:'เปิดรายการ Live',detail:'กดแสดงรายการนี้บนจอ Live',page:'checkin'},
