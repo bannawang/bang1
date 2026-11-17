@@ -36,7 +36,7 @@ assert(panel.includes("api('admin_coach_live_checkin_access',{id:Number(manager.
 assert(controller.includes("user.role==='Manager'&&user.canLiveCheckin===true"),
  'Browser LIVE manager panel must not auto-enable every Manager');
 for(const script of ['role-guidance.js','admin-tabs.js']){
- assert(html.includes(script+'?v=20261110-manager-checkin24'),
+ assert(html.includes(script+'?v='+(script==='role-guidance.js'?'20261117-admin-qr-access':'20261110-manager-checkin24')),
    'New version of '+script+' must bypass old browser cache');
 }
 assert(html.includes('live-manager.js?v=20261117-prelim-edit-final-readonly5'),
@@ -52,7 +52,10 @@ assert.equal(can('qr-checkin',denied),false,'Unapproved Manager may not open QR 
 assert.equal(can('qr-checkin',granted),true,'Granted Manager may scan QR');
 assert.equal(can('qr-checkin',{role:'Teacher'}),false,'Teachers cannot scan QR');
 assert.equal(can('qr-checkin',{role:'Staff'}),false,'Staff cannot scan QR');
-assert.equal(can('qr-checkin',{role:'Admin'}),false,'QR page is restricted to the granted Manager role');
+assert.equal(can('qr-checkin',{role:'Admin'}),true,'Admin may navigate to QR');
+assert.equal(can('qr-checkin',{role:'TopAdmin'}),true,'TopAdmin may navigate to QR without a Manager grant');
+assert.equal(can('qr-checkin',{role:'Manager',canLiveCheckin:false}),false,
+  'Unapproved Manager still denied QR');
 assert.equal(can('admin',denied),true,'Unapproved Manager still reviews runner approvals');
 assert.equal(can('checkin',granted),true,'Approved Manager may navigate to check-in');
 assert.equal(can('checkin',{role:'Manager'}),false,'Missing permission must deny by default');
