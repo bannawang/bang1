@@ -9,6 +9,7 @@
   let snapshot=null,activeKey='',scannedRegId=0,loading=false,busy=false;
   let stream=null,frameId=0,scanGeneration=0,lastDecodeAt=0;
   let optionsHash='',lastTeamHash='';
+  let fixtureItems=[],pickerOpen=false,pickerQuery='',pickerRound='all';
   const permitted=()=>{
     const user=typeof currentUser==='undefined'?null:currentUser;
     return !!user&&(user.role==='Admin'||user.role==='TopAdmin'||
@@ -50,24 +51,197 @@
     return 'รายการที่ '+number+' · '+String(f?.eventName||'')+
       ' · '+String(f?.round||'')+heats;
   }
+
+  // Match the official program order and picker appearance in "เช็กชื่อรายงานตัว".
+  const isFinalFixture=f=>/^(รอบชิง|ชิงชนะเลิศ)/.test(String(f?.round||''));
+  const isReadyFinal=f=>f?.qualifiedFinal===true&&isFinalFixture(f);
+  const isPendingFinal=f=>f?.pendingFinal===true&&isFinalFixture(f);
+  function pickerOrder(f){
+    const order=Number(f?.order);
+    if(Number.isFinite(order)&&order>0)return order;
+    const id=Number(f?.eventId);
+    if(Number.isFinite(id)&&id>0)return id;
+    const m=String(f?.eventNumberLabel||'').match(/^\d+/);
+    return m?Number(m[0]):Number.MAX_SAFE_INTEGER;
+  }
+  function sortedFixtures(items){
+    return [...items].sort((a,b)=>pickerOrder(a)-pickerOrder(b)||
+      Number(a?.eventId||0)-Number(b?.eventId||0)||
+      Number(a?.heat||0)-Number(b?.heat||0));
+  }
+  function fixtureTitle(f){
+    return 'รายการที่ '+String(f?.eventNumberLabel||f?.eventId||'—')+
+      ' · '+String(f?.eventName||'ไม่ระบุรายการ');
+  }
+  function fixtureDetails(f){
+    const heat=Array.isArray(f?.heats)&&f.heats.length>1
+      ?'ฮีท '+f.heats.join('–'):(f?.heat?'ฮีท '+f.heat:'');
+    return [f?.category,f?.level,f?.gender,heat].filter(Boolean).join(' · ');
+  }
+  function updatePickerTrigger(){
+    const trigger=el('bang1QrFixtureTrigger');
+    if(!trigger)return;
+    const selected=fixtureItems.find(f=>f.key===activeKey)||snapshot?.active||null;
+    el('bang1QrFixtureCurrentTitle').textContent=selected?
+      fixtureTitle(selected):'เลือกรายการแข่งขัน';
+    el('bang1QrFixtureCurrentDetail').textContent=selected?
+      [fixtureDetails(selected),selected.round].filter(Boolean).join(' · '):
+      'ค้นหาและเลือกการแข่งขันก่อนสแกน QR';
+    trigger.classList.toggle('is-final',Boolean(selected&&isFinalFixture(selected)));
+    trigger.classList.toggle('has-selection',Boolean(selected));
+  }
+  function positionPicker(){
+    if(!pickerOpen)return;
+    const trigger=el('bang1QrFixtureTrigger'),menu=el('bang1QrFixturePopover');
+    if(!trigger||!menu)return;
+    const rect=trigger.getBoundingClientRect(),vw=window.innerWidth,vh=window.innerHeight;
+    const width=Math.min(1000,Math.max(0,vw-16),Math.max(rect.width,260));
+    const left=Math.min(Math.max(8,rect.left),Math.max(8,vw-width-8));
+    const height=Math.min(620,Math.max(240,Math.round(vh*.74)),vh-16);
+    const below=Math.max(0,vh-rect.bottom-12),above=Math.max(0,rect.top-12);
+    let top,available;
+    if(below>=Math.min(320,height)||below>=above){
+      top=rect.bottom+8;available=vh-top-8;
+    }else{
+      available=above;top=Math.max(8,rect.top-Math.min(height,available)-8);
+    }
+    if(available<225){top=8;available=vh-16;}
+    menu.style.left=left+'px';
+    menu.style.top=top+'px';
+    menu.style.width=width+'px';
+    menu.style.maxHeight=Math.max(120,Math.min(height,available))+'px';
+  }
+  function renderPicker(){
+    const list=el('bang1QrFixtureList'),footer=el('bang1QrFixtureResults');
+    if(!list||!footer)return;
+    const previousScroll=list.scrollTop;
+    const focusedKey=list.contains(document.activeElement)?
+      document.activeElement.closest('[data-key]')?.dataset.key:null;
+    const query=pickerQuery.toLocaleLowerCase('th').replace(/\s+/g,'');
+    const visible=sortedFixtures(fixtureItems.filter(f=>{
+      if(pickerRound==='final'&&!isFinalFixture(f))return false;
+      if(pickerRound==='prelim'&&isFinalFixture(f))return false;
+      const haystack=[fixtureTitle(f),fixtureDetails(f),f.round||''].join(' ')
+        .toLocaleLowerCase('th').replace(/\s+/g,'');
+      return !query||haystack.includes(query);
+    }));
+    list.replaceChildren();
+    if(!visible.length){
+      const empty=document.createElement('p');
+      empty.className='bang1-fixture-no-results';
+      empty.textContent='ไม่พบรายการแข่งขันที่ตรงกับคำค้นหา';
+      list.appendChild(empty);
+    }
+    for(const f of visible){
+      const option=document.createElement('button');
+      option.type='button';
+      option.className='bang1-fixture-option'+
+        (isFinalFixture(f)?' is-final':'')+
+        (isReadyFinal(f)?' is-qualified-final':'')+
+        (isPendingFinal(f)?' is-pending-final':'')+
+        (activeKey===f.key?' is-selected':'');
+      option.disabled=isPendingFinal(f)||busy;
+      option.setAttribute('role','option');
+      option.setAttribute('aria-disabled',option.disabled?'true':'false');
+      option.setAttribute('aria-selected',activeKey===f.key?'true':'false');
+      option.dataset.key=f.key;
+      option.innerHTML=
+        '<span class="bang1-fixture-number">'+esc(f.eventNumberLabel||f.eventId||'—')+'</span>'+
+        '<span class="bang1-fixture-option-copy">'+
+          '<strong>'+esc(f.eventName||'ไม่ระบุรายการ')+'</strong>'+
+          '<small>'+esc(fixtureDetails(f))+'</small>'+
+        '</span>'+
+        '<span class="bang1-fixture-option-meta">'+
+          '<span class="bang1-fixture-round">'+
+            (isReadyFinal(f)?'✅ ผ่านคัดเลือก · รอบชิง':
+              isPendingFinal(f)?'⏳ รอบชิง · รอผลคัดเลือก':
+              isFinalFixture(f)?'🏆 รอบชิง':esc(f.round||'รอยืนยันรอบ'))+'</span>'+
+          '<small>'+(isReadyFinal(f)?
+             Number(f.teams||0)+' โรงเรียน · พร้อมปล่อย LIVE':
+             isPendingFinal(f)?
+               Number(f.qualificationSavedHeats||0)+'/'+Number(f.qualificationRequiredHeats||2)+
+               ' ฮีท · ยังไม่เปิดให้ปล่อย LIVE':
+             Number(f.checked||0)+'/'+Number(f.total||0)+' คน')+'</small>'+
+        '</span>';
+      option.addEventListener('click',()=>{
+        if(isPendingFinal(f)||busy)return;
+        closePicker(true);
+        if(f.key===activeKey)return;
+        el('bang1QrFixture').value=f.key;
+        void selectFixture();
+      });
+      list.appendChild(option);
+    }
+    if(focusedKey){
+      const node=[...list.querySelectorAll('[data-key]')].find(b=>b.dataset.key===focusedKey);
+      node?.focus({preventScroll:true});
+    }
+    list.scrollTop=previousScroll;
+    const ready=fixtureItems.filter(isReadyFinal).length;
+    const pending=fixtureItems.filter(isPendingFinal).length;
+    footer.textContent='แสดง '+visible.length+' จาก '+fixtureItems.length+
+      ' รายการแข่งขัน · เรียงตามลำดับรายการจัดแข่งขัน · พร้อมรอบชิง '+ready+
+      ' · รอผลคัดเลือก '+pending+' · อัปเดตอัตโนมัติ';
+    el('bang1QrFixturePopover').querySelectorAll('[data-round]').forEach(btn=>{
+      const active=btn.dataset.round===pickerRound;
+      btn.classList.toggle('is-active',active);
+      btn.setAttribute('aria-pressed',active?'true':'false');
+    });
+  }
+  function openPicker(){
+    if(!onPage()||!permitted()||busy)return;
+    const menu=el('bang1QrFixturePopover'),trigger=el('bang1QrFixtureTrigger');
+    if(menu.parentElement!==document.body)document.body.appendChild(menu);
+    pickerOpen=true;pickerQuery='';pickerRound='all';
+    el('bang1QrFixtureSearch').value='';
+    menu.hidden=false;trigger.setAttribute('aria-expanded','true');
+    renderPicker();positionPicker();
+    void refresh();
+    const selected=menu.querySelector('.bang1-fixture-option.is-selected');
+    selected?.scrollIntoView({block:'nearest'});
+    if(window.matchMedia('(pointer: fine)').matches)
+      el('bang1QrFixtureSearch').focus({preventScroll:true});
+  }
+  function closePicker(restoreFocus=false){
+    if(!pickerOpen)return;
+    pickerOpen=false;
+    const menu=el('bang1QrFixturePopover'),trigger=el('bang1QrFixtureTrigger');
+    menu.hidden=true;trigger.setAttribute('aria-expanded','false');
+    if(restoreFocus&&onPage())trigger.focus({preventScroll:true});
+  }
+  function pickerKeydown(event){
+    if(!pickerOpen)return;
+    if(event.key==='Escape'){event.preventDefault();closePicker(true);return;}
+    if(!['ArrowDown','ArrowUp','Home','End'].includes(event.key))return;
+    const buttons=[...el('bang1QrFixtureList').querySelectorAll('button[role="option"]:not(:disabled)')];
+    if(!buttons.length)return;
+    event.preventDefault();
+    const current=buttons.indexOf(document.activeElement);
+    const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:
+      event.key==='ArrowDown'?(current<0?0:(current+1)%buttons.length):
+      (current<0?buttons.length-1:(current-1+buttons.length)%buttons.length);
+    buttons[next].focus({preventScroll:true});
+    buttons[next].scrollIntoView({block:'nearest'});
+  }
   function updateOptions(data){
     const opts=[...(data?.fixtures||[]),...(data?.pendingFinals||[])];
     const signature=JSON.stringify(opts.map(f=>
-      [f.key,f.eventNumberLabel,f.eventName,f.round,f.order,f.pendingFinal,f.qualifiedFinal]));
+      [f.key,f.eventNumberLabel,f.eventName,f.round,f.order,f.pendingFinal,
+       f.qualifiedFinal,f.checked,f.total,f.teams,f.qualificationSavedHeats,f.qualificationRequiredHeats]));
     const select=el('bang1QrFixture');if(!select)return;
     if(signature!==optionsHash){
       optionsHash=signature;
-      const placeholder=new Option('— เลือกรายการแข่งขัน —','');
-      select.replaceChildren(placeholder);
-      opts.sort((a,b)=>Number(a.order||a.eventId||999999)-
-        Number(b.order||b.eventId||999999));
-      for(const f of opts){
+      fixtureItems=sortedFixtures(opts);
+      select.replaceChildren(new Option('— เลือกรายการแข่งขัน —',''));
+      for(const f of fixtureItems){
         const option=new Option(fixtureLabel(f)+(f.pendingFinal?' · รอผลคัดเลือก':''),f.key);
-        option.disabled=f.pendingFinal===true;
+        option.disabled=isPendingFinal(f);
         select.add(option);
       }
+      if(pickerOpen)renderPicker();
     }
     select.value=activeKey||'';
+    updatePickerTrigger();
     el('bang1QrStart').disabled=!activeKey;
     const active=data?.active;
     el('bang1QrActive').textContent=active?
@@ -123,6 +297,7 @@
       resetCard();
     }
     updateOptions(state);
+    if(pickerOpen&&oldKey!==activeKey)renderPicker();
     if(scannedRegId){
       const team=(state?.teams||[]).find(x=>Number(x.regId)===scannedRegId);
       if(team)renderTeam(team);
@@ -283,6 +458,30 @@
   function setup(){
     if(!el('page-qr-checkin'))return;
     el('bang1QrFixture').addEventListener('change',()=>void selectFixture());
+    el('bang1QrFixtureTrigger').addEventListener('click',()=>{
+      if(pickerOpen)closePicker();else openPicker();
+    });
+    el('bang1QrFixtureClose').addEventListener('click',()=>closePicker(true));
+    el('bang1QrFixtureSearch').addEventListener('input',event=>{
+      pickerQuery=event.target.value;renderPicker();
+      el('bang1QrFixtureList').scrollTop=0;
+    });
+    el('bang1QrFixturePopover').querySelectorAll('[data-round]').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        pickerRound=btn.dataset.round;renderPicker();
+        el('bang1QrFixtureList').scrollTop=0;
+        if(window.matchMedia('(pointer: fine)').matches)
+          el('bang1QrFixtureSearch').focus({preventScroll:true});
+      });
+    });
+    el('bang1QrFixturePopover').addEventListener('keydown',pickerKeydown);
+    document.addEventListener('pointerdown',event=>{
+      if(!pickerOpen)return;
+      const trigger=el('bang1QrFixtureTrigger'),menu=el('bang1QrFixturePopover');
+      if(!menu.contains(event.target)&&!trigger.contains(event.target))closePicker();
+    });
+    window.addEventListener('resize',positionPicker);
+    document.addEventListener('scroll',positionPicker,true);
     el('bang1QrStart').addEventListener('click',()=>void startCamera());
     el('bang1QrStop').addEventListener('click',()=>{stopCamera();notice('ปิดกล้องแล้ว');});
     el('bang1QrFile').addEventListener('change',event=>void decodeFile(event));
@@ -301,13 +500,13 @@
       if(onPage()){
         if(permitted())void refresh();
         else notice('บัญชีนี้ไม่ได้รับสิทธิ์เช็กชื่อด้วย QR','error');
-      }else{stopCamera();resetCard();}
+      }else{stopCamera();resetCard();closePicker();}
     }).observe(page,{attributes:true,attributeFilter:['class']});
     document.addEventListener('visibilitychange',()=>{
-      if(document.hidden)stopCamera();
+      if(document.hidden){stopCamera();closePicker();}
       else if(onPage())void refresh();
     });
-    window.addEventListener('pagehide',stopCamera);
+    window.addEventListener('pagehide',()=>{stopCamera();closePicker();});
     setInterval(()=>{
       if(onPage()&&!document.hidden&&!busy)void refresh();
     },3000);
