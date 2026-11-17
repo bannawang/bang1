@@ -774,13 +774,13 @@ if($action==='live_manager_data'){
 must_post();
 
 /**
- * Manager-only: resolve an existing printed QR to a registration belonging to
+ * Admin/TopAdmin or granted Manager: resolve a printed QR to a registration belonging to
  * the CURRENTLY active official LIVE fixture. Scanning alone never checks in
  * a runner. No proof files, citizen IDs, or cross-fixture records are returned.
  */
 if($action==='live_qr_lookup'){
-    if(($u['role']??'')!=='Manager'||($u['canLiveCheckin']??false)!==true)
-        json_out(['success'=>false,'message'=>'เฉพาะ Manager ที่ได้รับสิทธิ์เช็กชื่อด้วย QR เท่านั้น'],403);
+    if(!is_admin($u) && (($u['role']??'')!=='Manager'||($u['canLiveCheckin']??false)!==true))
+        json_out(['success'=>false,'message'=>'เฉพาะ Admin/TopAdmin หรือ Manager ที่ได้รับสิทธิ์เช็กชื่อด้วย QR เท่านั้น'],403);
     require_once __DIR__.'/qr-checkin-rules.php';
     $qr=bang1_qr_registration_locator((string)($input['qr']??''));
     $fixtureKey=trim((string)($input['fixtureKey']??''));

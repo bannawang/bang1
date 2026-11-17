@@ -17,13 +17,16 @@ assert(roles.includes("pages:['login','checkin','qr-checkin','admin']"),
   'Granted Manager can access QR');
 assert(roles.includes("pages:['login','admin']"),
   'Restricted Manager cannot access QR');
-assert(!roles.includes("pages:['login','runners','register','print','schedule','results','score-summary','checkin','qr-checkin','admin']"),
-  'Admin is not accidentally given the Manager-only QR page');
-assert(app.includes("user?.role==='Manager'&&user?.canLiveCheckin===true"),
-  'Frontend QR permission gate');
+assert(roles.includes("pages:['login','runners','register','print','schedule','results','score-summary','checkin','qr-checkin','admin']"),
+  'Admin and normalized TopAdmin may navigate to QR attendance');
+assert(app.includes("user.role==='Admin'||user.role==='TopAdmin'"),
+  'Frontend QR scanner includes Admin and TopAdmin');
+assert(app.includes("user.role==='Manager'&&user.canLiveCheckin===true"),
+  'Granted Manager retains QR access');
 assert(api.includes("'live_qr_lookup'"),'API routes QR lookup');
 assert(backend.includes("if($action==='live_qr_lookup')"),'Server has read-only QR resolver');
-assert(backend.includes("($u['role']??'')!=='Manager'"),'Server enforces Manager-only access');
+assert(backend.includes("if(!is_admin($u) &&"),'Server grants Admin/TopAdmin QR lookup');
+assert(backend.includes("($u['role']??'')!=='Manager'"),'Server retains Manager-grant restriction');
 assert(backend.includes("if($active===''||!hash_equals($active,$fixtureKey))"),
   'Server rejects another or stale active competition');
 assert(backend.includes("foreach(($state['teams']??[]) as $candidate)"),
@@ -49,4 +52,8 @@ assert(app.includes("if(document.hidden)stopCamera()"),'Camera stops on visibili
 assert(app.includes("const control=final?"),'Final roster does not render checkboxes');
 assert(html.includes('id="bang1QrFile"')&&html.includes('id="bang1QrManual"'),
   'Camera fallback paths are available');
+assert(html.includes('role-guidance.js?v=20261117-admin-qr-access'),
+  'Role menu change busts browser cache');
+assert(html.includes('qr-checkin.js?v=20261117-admin-qr-access'),
+  'QR scanner permissions bust browser cache');
 console.log('PASS: authorized QR camera lookup, correct fixture, shared attendance, final read-only, camera cleanup');

@@ -4,9 +4,9 @@
  'use strict';
  const policies={
   Admin:{
-   pages:['login','runners','register','print','schedule','results','score-summary','checkin','admin'],
+   pages:['login','runners','register','print','schedule','results','score-summary','checkin','qr-checkin','admin'],
    name:'Admin',
-   permission:'จัดการและตั้งค่าระบบได้ทุกส่วน รวมถึงโรงเรียน ผู้ฝึกซ้อม การตรวจสอบนักวิ่ง และรายการแข่งขัน',
+   permission:'จัดการและตั้งค่าระบบได้ทุกส่วน รวมถึงการเช็กชื่อรายงานตัวด้วย QR การตรวจสอบนักวิ่ง และรายการแข่งขัน',
    steps:[
     {icon:'⚙️',title:'ตั้งค่าระบบ',detail:'ตรวจสอบเวลาเปิด–ปิด และบัญชีผู้ใช้งาน',page:'admin'},
     {icon:'🏫',title:'จัดการข้อมูล',detail:'ตรวจสอบโรงเรียน ผู้ฝึกซ้อม และข้อมูลนักกรีฑา',page:'admin'},

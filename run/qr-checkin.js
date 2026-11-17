@@ -11,7 +11,8 @@
   let optionsHash='',lastTeamHash='';
   const permitted=()=>{
     const user=typeof currentUser==='undefined'?null:currentUser;
-    return user?.role==='Manager'&&user?.canLiveCheckin===true;
+    return !!user&&(user.role==='Admin'||user.role==='TopAdmin'||
+      (user.role==='Manager'&&user.canLiveCheckin===true));
   };
   const onPage=()=>el('page-qr-checkin')?.classList.contains('active')===true;
   const request=(action,payload)=>{
