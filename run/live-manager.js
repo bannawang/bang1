@@ -172,7 +172,7 @@
     trigger.setAttribute('aria-expanded','true');
     lastMenuHash=JSON.stringify([
       el('bang1ActiveFixture')?.value,
-      fixtureItems.map(f=>[f.key,f.checked,f.total,f.round,f.qualifiedFinal])
+      fixtureItems.map(f=>[f.key,f.checked,f.total,f.round,f.qualifiedFinal,f.teams])
     ]);
     renderFixtureOptions();
     positionFixtureMenu();

@@ -35,10 +35,12 @@ assert(panel.includes("api('admin_coach_live_checkin_access',{id:Number(manager.
  'Admin UI must call grant/revoke for a specific Manager');
 assert(controller.includes("user.role==='Manager'&&user.canLiveCheckin===true"),
  'Browser LIVE manager panel must not auto-enable every Manager');
-for(const script of ['role-guidance.js','admin-tabs.js','live-manager.js']){
+for(const script of ['role-guidance.js','admin-tabs.js']){
  assert(html.includes(script+'?v=20261110-manager-checkin24'),
    'New version of '+script+' must bypass old browser cache');
 }
+assert(html.includes('live-manager.js?v=20261117-final-ready-fastpoll1'),
+ 'Latest LIVE manager controller must bypass old browser cache');
 const state={window:{},document:{readyState:'loading',addEventListener(){}}};
 vm.createContext(state);
 vm.runInContext(guidance,state);
