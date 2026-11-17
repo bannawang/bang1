@@ -167,6 +167,15 @@ function event_schedule_data(): array {
                 $line['TotalTeams']=$teams;
                 $line['SchoolCount']=$teams;
                 $ready=count($qualifiedFinal)===6;
+                $completed=0;
+                foreach([1,2] as $heat){
+                    $ranks=$preliminaryRankings[$heat]??[];
+                    if(is_array($ranks)&&trim((string)($ranks['1']??''))!==''
+                        &&trim((string)($ranks['2']??''))!==''
+                        &&trim((string)($ranks['3']??''))!=='')$completed++;
+                }
+                $line['QualificationSavedHeats']=$ready?2:$completed;
+                $line['QualificationRequiredHeats']=2;
                 $line['CompetitionRound']=$ready?'ชิงชนะเลิศ':'รอผลการแข่งขันรอบคัดเลือก';
                 $line['entries']=$ready?$qualifiedFinal:[];
                 $line['RegisteredTeams']=$ready?6:0;
