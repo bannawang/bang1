@@ -134,6 +134,8 @@ jobs:
             --connect-timeout 15 --max-time 45 "${BASE%/}/api.php?action=live_state" > /tmp/bang1-live-check.json
           jq -e '.success == true and (.display.mode == "sport" or .display.mode == "checkin") and (.display.slideSeconds == 15) and (.serverNowMs | type == "number") and (.fixtures | type == "array") and (.next | type == "array") and (.latestResults | type == "array") and (.schools | length == 10) and (.schools | all((.registered | type == "boolean") and (.athletes | type == "array") and (.totalAthletes | type == "number") and (.logo == null or (.logo | type == "string"))))' /tmp/bang1-live-check.json >/dev/null
           jq '{success,display_mode:.display.mode,fixture_count:(.fixtures|length),school_columns:(.schools|length),recent_results:(.latestResults|length)}' /tmp/bang1-live-check.json
+          # Aggregate-only final integration check: no runner names, IDs, or images.
+          jq '{event31_final:([.fixtures[] | select(.eventId == 31 and .round == "รอบชิง") | {eventId,teams,round,qualifiedFinal}]),recent_preliminary_result_counts:([.latestResults[] | select(.eventId == 23 or .eventId == 24) | {eventId,heat,places:(.places|length)}])}' /tmp/bang1-live-check.json
           if jq -e '.display.mode == "sport" and (.fixtures|length)>0' /tmp/bang1-live-check.json >/dev/null; then
             FIXTURE_KEY="$(jq -r '.fixtures[0].key' /tmp/bang1-live-check.json)"
             curl --fail-with-body --silent --show-error --retry 2 \
