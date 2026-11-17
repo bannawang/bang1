@@ -6382,6 +6382,8 @@ function escSchedule(s) {
 }
 
 let scheduleEventsData = [];   // เก็บข้อมูลที่แสดงในตารางสำหรับพิมพ์สูจิบัตร
+let bang1ScheduleLoading = false;
+let bang1ScheduleFingerprint = '';
 
 // The expanded participants and the headline number must use the same
 // registration snapshot. Count distinct schools, not athletes/relay members.
@@ -6409,23 +6411,29 @@ function bang1UpdateScheduleSchoolCount(tr, entries) {
   // details response, even if the table was loaded before a new registration.
   row.entries = entries;
   row.RegisteredTeams = count;
-  const isWaitingFinal = String(row.Remark || '').trim() === 'คัดเลือก'
-    && String(row.Stage || '').trim() === 'ชิงชนะเลิศ';
+  const isWaitingFinal = row.SlotStatus === 'waiting';
   if (!isWaitingFinal && tr.children[3]) {
     tr.children[3].textContent = String(count);
     row._displayTeamText = String(count);
   }
 }
 
-function loadSchedule() {
-  setTableLoading('scheduleTableWrap', true);
+function loadSchedule(silent = false) {
+  if (bang1ScheduleLoading) return;
+  bang1ScheduleLoading = true;
+  if (!silent) setTableLoading('scheduleTableWrap', true);
   const summaryEl = document.getElementById('bang1ScheduleSummary');
-  if(summaryEl)summaryEl.textContent='กำลังโหลดสรุปการสมัคร...';
+  if (!silent && summaryEl) summaryEl.textContent='กำลังโหลดสรุปการสมัคร...';
 
   google.script.run
     .withSuccessHandler(function (rows) {
-      setTableLoading('scheduleTableWrap', false);
-
+      bang1ScheduleLoading = false;
+      if (!silent) setTableLoading('scheduleTableWrap', false);
+      const signature = JSON.stringify(rows || []);
+      if (silent && signature === bang1ScheduleFingerprint) return;
+      bang1ScheduleFingerprint = signature;
+      const scroller = document.querySelector('#scheduleTableWrap .table-scroller');
+      const savedScroll = scroller?.scrollTop || 0;
       const tbody = document.getElementById('scheduleTableBody');
       if (!tbody) return;
 
@@ -6477,8 +6485,10 @@ function loadSchedule() {
 
         // Both the detail rows and the team count come from real registrations.
         let teamText = '';
-        if (roundF === 'คัดเลือก' && stageK === 'ชิงชนะเลิศ') {
-          teamText = 'รอผลการแข่งขันรอบคัดเลือก';
+        if (r.SlotStatus === 'waiting') {
+          const done = Number(r.QualificationSavedHeats || 0);
+          const total = Number(r.QualificationRequiredHeats || 0);
+          teamText = 'รอผลการแข่งขันรอบคัดเลือก'+(total ? ' ('+done+'/'+total+' ฮีท)' : '');
         } else {
           teamText = String(actualTeams);
         }
@@ -6500,7 +6510,8 @@ function loadSchedule() {
         r._displayTeamText   = teamText;
         r._displayRemarkText = remarkText;
 
-        const drawText = r.SlotStatus==='preview' ? 'เบื้องต้น · ยังไม่สุ่ม'
+        const drawText = r.SlotStatus==='final_ready' ? 'พร้อมแข่งขันรอบชิง · 6 โรงเรียน'
+          : r.SlotStatus==='preview' ? 'เบื้องต้น · ยังไม่สุ่ม'
           : r.SlotStatus==='drawn' ? 'มีการจัดฮีท/ลู่ไว้แล้ว'
           : r.SlotStatus==='waiting' ? 'รอผลคัดเลือก' : 'ยังไม่มีผู้สมัคร';
         tr.innerHTML = `
@@ -6515,9 +6526,11 @@ function loadSchedule() {
         tr.addEventListener('click', onScheduleRowClick);
         tbody.appendChild(tr);
       });
+      if (scroller) scroller.scrollTop = savedScroll;
     })
     .withFailureHandler(function (err) {
-      setTableLoading('scheduleTableWrap', false);
+      bang1ScheduleLoading = false;
+      if (!silent) setTableLoading('scheduleTableWrap', false);
       const tbody = document.getElementById('scheduleTableBody');
       if (tbody) {
         tbody.innerHTML =
@@ -6526,10 +6539,17 @@ function loadSchedule() {
            </td></tr>`;
       }
       scheduleEventsData = [];
-      if(summaryEl)summaryEl.textContent='โหลดสรุปการสมัครไม่สำเร็จ';
+      if(summaryEl && !silent)summaryEl.textContent='โหลดสรุปการสมัครไม่สำเร็จ';
     })
     .getEventsForSchedule();
 }
+// Read-only polling while the schedule page is displayed: never interrupt
+// forms, photo uploads or a user composing a registration.
+setInterval(() => {
+  const page = document.getElementById('page-schedule');
+  if (page?.classList.contains('active') && document.visibilityState === 'visible')
+    loadSchedule(true);
+}, 8000);
 
 // ---------- เวลาคลิกแถวหลัก: ยุบ / ขยาย ----------
 function onScheduleRowClick(e) {
