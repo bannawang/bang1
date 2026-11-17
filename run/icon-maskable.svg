@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Bang1 Athletics maskable">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#123eaf"/><stop offset=".53" stop-color="#062467"/><stop offset="1" stop-color="#071a39"/></linearGradient></defs>
+<rect width="512" height="512" fill="url(#bg)"/>
+<g transform="translate(100 100) scale(.61)">
+<g fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M76 218h97M60 272h101M84 321h67" stroke="#25e6ed" stroke-width="22"/>
+  <path d="M40 442C158 364 309 390 488 343" stroke="#03d9ca" stroke-width="28"/>
+  <path d="M99 485C218 406 360 410 494 367" stroke="#18a2e8" stroke-width="19"/>
+  <circle cx="326" cy="111" r="34" fill="#faffff"/>
+  <path d="M263 188l-69 52 49 56M264 189l57 47 93-9M260 195l-48 107-86 59M212 302l96 60-24 76" stroke="#faffff" stroke-width="31"/>
+</g>
+</g>
+</svg>
