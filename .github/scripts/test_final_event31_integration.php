@@ -7,7 +7,7 @@ $fixtureEvents=[
  ['id'=>24,'name'=>'วิ่ง 60 เมตร (6 ปี ชาย)','category'=>'วิ่งเดี่ยว','level'=>'อนุบาล','gender'=>'ชาย','remark'=>'คัดเลือก','heat'=>'2','heat_plan'=>'2','team_count'=>5,'total_teams'=>10,'stage'=>'คัดเลือก','ranking_json'=>null,'source_order'=>24],
  ['id'=>31,'name'=>'วิ่ง 60 เมตร (6 ปี ชาย)','category'=>'วิ่งเดี่ยว','level'=>'อนุบาล','gender'=>'ชาย','remark'=>'คัดเลือก','heat'=>'ชิง','heat_plan'=>'ชิง','team_count'=>null,'total_teams'=>10,'stage'=>'ชิงชนะเลิศ','ranking_json'=>null,'source_order'=>31]
 ];
-$fixtureRegs=[];
+$fixtureRegs=[];$fixtureCheckins=[];
 foreach([1,2] as $heat)for($r=1;$r<=5;$r++){
     $school="โรงเรียน H{$heat}-{$r}";
     $fixtureRegs[]=['id'=>$heat*10+$r,'event_id'=>$heat===1?23:24,
@@ -15,13 +15,16 @@ foreach([1,2] as $heat)for($r=1;$r<=5;$r++){
         'school_name'=>$school,'runner_ids'=>(string)($heat*10+$r),
         'runner_names'=>'เด็ก '.$r,'photos'=>'https://example.test/athlete.jpg',
         'heat'=>$heat,'lane'=>$r];
+    $fixtureCheckins[]=['registration_id'=>$heat*10+$r,
+        'athlete_key'=>'runner:'.($heat*10+$r),'checked_at'=>'2026-11-17 08:00:00'];
 }
 $fixtureResults=[
     ['event_id'=>23,'heat_no'=>1,'ranking_json'=>json_encode(['1'=>'โรงเรียน H1-1','2'=>'โรงเรียน H1-2','3'=>'โรงเรียน H1-3'],JSON_UNESCAPED_UNICODE)],
     ['event_id'=>24,'heat_no'=>2,'ranking_json'=>json_encode(['1'=>'โรงเรียน H2-1','2'=>'โรงเรียน H2-2','3'=>'โรงเรียน H2-3'],JSON_UNESCAPED_UNICODE)]
 ];
 function rows(string $sql,array $params=[]):array{
-    global $fixtureEvents,$fixtureRegs,$fixtureResults;
+    global $fixtureEvents,$fixtureRegs,$fixtureResults,$fixtureCheckins;
+    if(str_contains($sql,'FROM race_athlete_checkins'))return $fixtureCheckins;
     if(str_contains($sql,'FROM events'))return $fixtureEvents;
     if(str_contains($sql,'FROM registrations'))return $fixtureRegs;
     if(str_contains($sql,'FROM event_results'))return $fixtureResults;
@@ -40,6 +43,8 @@ function fixture31():array{
 $final=fixture31();
 expect_final($final['CompetitionRound']==='ชิงชนะเลิศ','Official 23/24 results did not advance 31');
 expect_final(count($final['entries']??[])===6,'Event 31 must have six finalists');
+expect_final(count(array_filter($final['entries'],fn($e)=>($e['ConfirmedAthletes']??0)===1))===6,
+    'Final must inherit only prelim-confirmed athletes');
 expect_final(array_column($final['entries'],'Lane')===[2,3,4,5,6,7],'Wrong final lane allocation');
 expect_final(($final['QualificationPending']??null)===false,'Ready final still marked waiting');
 $fixtureRegs[]=['id'=>999,'event_id'=>23,'event_name'=>'วิ่ง 60 เมตร (6 ปี ชาย)',

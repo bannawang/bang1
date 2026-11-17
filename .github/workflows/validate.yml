@@ -30,6 +30,8 @@ jobs:
         run: php .github/scripts/test_final_event31_integration.php
       - name: Qualified final visible in event schedule and LIVE
         run: php .github/scripts/test_final_schedule_live.php
+      - name: Locked selected preliminary runner transfers to final unchanged
+        run: php .github/scripts/test_locked_prelim_finalist.php
       - name: Preliminary top-three qualification and final lane allocation regression
         run: php .github/scripts/test_final_qualification.php
       - name: Eight-school entry cap for races aged 14 and above
