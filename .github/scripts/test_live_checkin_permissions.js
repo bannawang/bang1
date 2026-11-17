@@ -19,8 +19,8 @@ assert(bootstrap.includes("function require_live_checkin_access(array $u)"),
  'The backend must enforce Manager grants');
 assert(bootstrap.includes("($u['canLiveCheckin']??false)!==true"),
  'Manager grant must be explicitly TRUE, never granted by role alone');
-assert(api.includes("['live_manager_data','live_select','live_runner_set','live_display_set']"),
- 'All four privileged actions must go through the LIVE module');
+assert(api.includes("['live_manager_data','live_select','live_runner_set','live_display_set','live_qr_lookup']"),
+ 'All five protected actions, including QR lookup, must go through the LIVE module');
 assert(live.includes("require_live_checkin_access($u);"),
  'LIVE data and updates must be behind the new server guard');
 assert(admin.includes("if ($action === 'admin_coach_live_checkin_access')"),
@@ -48,6 +48,11 @@ const {can}=state.window.bang1Role;
 const denied={role:'Manager',canLiveCheckin:false};
 const granted={role:'Manager',canLiveCheckin:true};
 assert.equal(can('checkin',denied),false,'Unapproved Manager may not navigate to check-in');
+assert.equal(can('qr-checkin',denied),false,'Unapproved Manager may not open QR check-in');
+assert.equal(can('qr-checkin',granted),true,'Granted Manager may scan QR');
+assert.equal(can('qr-checkin',{role:'Teacher'}),false,'Teachers cannot scan QR');
+assert.equal(can('qr-checkin',{role:'Staff'}),false,'Staff cannot scan QR');
+assert.equal(can('qr-checkin',{role:'Admin'}),false,'QR page is restricted to the granted Manager role');
 assert.equal(can('admin',denied),true,'Unapproved Manager still reviews runner approvals');
 assert.equal(can('checkin',granted),true,'Approved Manager may navigate to check-in');
 assert.equal(can('checkin',{role:'Manager'}),false,'Missing permission must deny by default');

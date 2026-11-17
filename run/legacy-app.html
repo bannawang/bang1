@@ -1566,6 +1566,7 @@ body{
 <link rel="stylesheet" href="role-guidance.css?v=20261108-roles">
 <link rel="stylesheet" href="mobile-shell.css?v=20261110-bnw-website-link">
 <link rel="stylesheet" href="live-manager.css?v=20261117-prelim-edit-final-readonly5">
+<link rel="stylesheet" href="qr-checkin.css?v=20261117-qr-v1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@600;700;800;900&amp;display=swap" rel="stylesheet">
@@ -1610,6 +1611,7 @@ body{
         <button data-page="schedule"><span class="icon">📜</span> รายการจัดแข่งขัน</button>
         <button data-page="results"><span class="icon">🏅</span> ผลการแข่งขัน</button>
         <button data-page="checkin" hidden><span class="icon">✅</span> เช็กชื่อรายงานตัว</button>
+        <button data-page="qr-checkin" hidden><span class="icon">📷</span> เช็กชื่อด้วย QR</button>
         <button data-page="admin"><span class="icon">🛠️</span> ผู้ดูแลระบบ</button>
         <button data-page="score-summary"><span class="icon">📊</span> สรุปผลการแข่งขัน</button>
         <button type="button" id="bang1LogoutButton" onclick="handleLogout()" hidden><span class="icon">🚪</span> ออกจากระบบ</button>
@@ -4058,6 +4060,48 @@ function printRegSummary() {
           <div id="bang1NextRoster" class="bang1-registered-grid">
             <div class="bang1-roster-empty">ไม่มีรายการถัดไป</div>
           </div>
+        </div>
+      </section>
+
+      <!-- Manager QR attendance: shares race_athlete_checkins and LIVE fixture state. -->
+      <section class="page" id="page-qr-checkin">
+        <h1>📷 เช็กชื่อด้วย QR</h1>
+        <div class="subtitle">เฉพาะ Manager ที่ได้รับสิทธิ์ · สแกน QR บนใบสมัครของโรงเรียน แล้วเลือกนักกรีฑาที่มารายงานตัวจริง</div>
+        <div class="card bang1-qr-card">
+          <div class="card-header"><div class="card-title">1. เลือกรายการแข่งขัน</div><div class="tag">เชื่อมกับจอ LIVE</div></div>
+          <p class="bang1-qr-help">รายการเรียงตามกำหนดการแข่งขัน โดยรวมฮีทของรายการเดียวกันไว้ในตัวเลือกเดียว เมื่อเลือกรายการจะเปลี่ยนรายการ Active บนจอ LIVE เช่นเดียวกับเมนูเช็กรายงานตัว</p>
+          <label for="bang1QrFixture" class="bang1-qr-label">รายการแข่งขันที่ต้องการเช็กชื่อ</label>
+          <select id="bang1QrFixture" class="bang1-qr-select"><option value="">กำลังโหลดรายการ...</option></select>
+          <div id="bang1QrActive" class="bang1-qr-active">ยังไม่ได้เลือกรายการแข่งขัน</div>
+        </div>
+        <div class="card bang1-qr-card">
+          <div class="card-header"><div class="card-title">2. สแกน QR บนใบสมัคร</div><div class="tag">ไม่เช็กชื่อทันทีจนกว่าจะติ๊ก</div></div>
+          <div class="bang1-qr-controls">
+            <button id="bang1QrStart" type="button" class="btn" disabled>📷 เปิดกล้องสแกน QR</button>
+            <button id="bang1QrStop" type="button" class="btn btn-outline" disabled>■ ปิดกล้อง</button>
+            <label class="bang1-qr-upload btn btn-outline" for="bang1QrFile">🖼️ ใช้รูป QR
+              <input id="bang1QrFile" type="file" accept="image/*" hidden>
+            </label>
+          </div>
+          <div id="bang1QrCamera" class="bang1-qr-camera" hidden>
+            <video id="bang1QrVideo" playsinline muted autoplay></video>
+            <div class="bang1-qr-reticle" aria-hidden="true"></div>
+            <canvas id="bang1QrCanvas" hidden></canvas>
+          </div>
+          <div class="bang1-qr-manual">
+            <label for="bang1QrManual" class="bang1-qr-label">หรือกรอกเลขใบสมัคร (หากอุปกรณ์เปิดกล้องไม่ได้)</label>
+            <div class="bang1-qr-manual-controls">
+              <input id="bang1QrManual" type="text" inputmode="numeric" autocomplete="off" placeholder="เช่น 562">
+              <button id="bang1QrManualSubmit" type="button" class="btn btn-outline">ค้นหาใบสมัคร</button>
+            </div>
+          </div>
+          <p id="bang1QrStatus" class="bang1-qr-status" role="status" aria-live="polite">เลือกรายการแข่งขันด้านบน แล้วเปิดกล้องสแกน QR</p>
+        </div>
+        <div class="card bang1-qr-card" id="bang1QrResultCard" hidden>
+          <div class="card-header"><div class="card-title">3. เลือกนักกรีฑาที่มารายงานตัว</div><div class="tag" id="bang1QrCount">—</div></div>
+          <p class="bang1-qr-help">เครื่องหมายถูกบันทึกร่วมกับเมนู “เช็กชื่อรายงานตัว” ทันที · รอบคัดเลือกสามารถยกเลิกและเลือกตัวใหม่ได้ · รอบชิงแสดงรายชื่อจากรอบคัดเลือกเท่านั้น</p>
+          <div id="bang1QrResult"></div>
+          <button id="bang1QrNext" type="button" class="btn btn-outline">📷 สแกนใบสมัครถัดไป</button>
         </div>
       </section>
     </main>
@@ -8342,6 +8386,8 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="mobile-shell.js?v=20261110-bnw-website-link"></script>
 <script src="account-portal.js?v=20261111-approval-notice"></script>
 <script src="vendor/qrcode.js?v=20261109-print-qr"></script>
+<script src="vendor/jsQR.js?v=20261117-qr-v1"></script>
 <script src="live-manager.js?v=20261117-prelim-edit-final-readonly5"></script>
+<script src="qr-checkin.js?v=20261117-qr-v1"></script>
 </body>
 </html>

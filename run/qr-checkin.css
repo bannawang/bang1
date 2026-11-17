@@ -1,0 +1,66 @@
+/* QR check-in is isolated from the original LIVE and registration layouts. */
+#page-qr-checkin .bang1-qr-card{margin-bottom:14px}
+#page-qr-checkin .bang1-qr-help{font-size:.9rem;color:#b8cfe1;line-height:1.55;margin:8px 0 13px}
+#page-qr-checkin .bang1-qr-label{display:block;margin:8px 0;font-weight:750;color:#cdf1ff}
+#page-qr-checkin .bang1-qr-select,#page-qr-checkin .bang1-qr-manual input{
+  box-sizing:border-box;width:100%;min-height:48px;padding:10px 13px;
+  background:#071a2e;color:#eef9ff;border:1px solid #428cb7;border-radius:11px;
+  font:inherit;font-size:1rem
+}
+#page-qr-checkin .bang1-qr-select:focus,#page-qr-checkin .bang1-qr-manual input:focus{outline:2px solid #32bfe8;outline-offset:1px}
+#page-qr-checkin .bang1-qr-active{
+  margin-top:12px;padding:13px;border-radius:11px;background:#0c3c55;
+  border:1px solid #248aa5;color:#d0f6ff;font-weight:800;line-height:1.5
+}
+#page-qr-checkin .bang1-qr-controls{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+#page-qr-checkin .bang1-qr-controls button,#page-qr-checkin .bang1-qr-upload{min-height:44px}
+#page-qr-checkin .bang1-qr-upload{display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+#page-qr-checkin .bang1-qr-camera{
+  margin:12px auto;position:relative;width:min(100%,620px);overflow:hidden;
+  border-radius:15px;border:2px solid #1ac4d0;background:#020b15;aspect-ratio:4/3
+}
+#page-qr-checkin .bang1-qr-camera[hidden]{display:none!important}
+#page-qr-checkin .bang1-qr-camera video{width:100%;height:100%;object-fit:cover;display:block}
+#page-qr-checkin .bang1-qr-reticle{
+  position:absolute;width:60%;aspect-ratio:1/1;max-height:85%;left:20%;top:50%;
+  transform:translateY(-50%);border:3px solid #6bf5d4;border-radius:18px;
+  box-shadow:0 0 0 2000px #0004,0 0 0 4px #fff2;pointer-events:none
+}
+#page-qr-checkin .bang1-qr-manual{margin-top:14px}
+#page-qr-checkin .bang1-qr-manual-controls{display:flex;gap:9px;align-items:center}
+#page-qr-checkin .bang1-qr-manual input{min-width:0;flex:1}
+#page-qr-checkin .bang1-qr-status{
+  border:1px solid #2e738e;border-radius:10px;background:#0a2c42;color:#c5eaff;
+  padding:12px 14px;font-weight:750;line-height:1.45;margin:13px 0 0
+}
+#page-qr-checkin .bang1-qr-status[data-kind=success]{color:#c7ffdf;background:#064b3b;border-color:#0eaa76}
+#page-qr-checkin .bang1-qr-status[data-kind=error]{color:#ffe2cc;background:#5d251b;border-color:#dc7857}
+#page-qr-checkin #bang1QrResultCard[hidden]{display:none!important}
+#page-qr-checkin .bang1-qr-school{
+  display:flex;gap:4px;flex-direction:column;padding:13px;background:#104566;border-radius:10px;
+  color:#e8fbff;margin-bottom:9px
+}
+#page-qr-checkin .bang1-qr-school strong{font-size:1.12rem}
+#page-qr-checkin .bang1-qr-school small{color:#bedfed}
+#page-qr-checkin .bang1-qr-runner{
+  display:flex;align-items:center;gap:12px;padding:11px;margin:7px 0;
+  border:1px solid #2b6c91;border-radius:12px;background:#102638;cursor:pointer
+}
+#page-qr-checkin .bang1-qr-runner.is-checked{background:#0d5844;border-color:#18b67d}
+#page-qr-checkin .bang1-qr-runner:has(input:disabled){opacity:.67;cursor:not-allowed}
+#page-qr-checkin .bang1-qr-runner input[type=checkbox]{flex:none;width:26px;height:26px;accent-color:#16c893}
+#page-qr-checkin .bang1-qr-runner img,#page-qr-checkin .bang1-qr-fallback{
+  width:72px;height:90px;object-fit:cover;flex:none;border-radius:9px;background:#113c53
+}
+#page-qr-checkin .bang1-qr-fallback{display:grid;place-items:center;font-size:1.9rem}
+#page-qr-checkin .bang1-qr-runner>span:last-child{flex:1;min-width:0}
+#page-qr-checkin .bang1-qr-runner strong{display:block;color:#ecfbff;font-size:1.03rem;overflow-wrap:anywhere}
+#page-qr-checkin .bang1-qr-runner small{display:block;color:#b5d9df;font-size:.82rem;margin-top:3px;line-height:1.55}
+#page-qr-checkin .bang1-qr-readonly{display:grid;place-items:center;width:27px;height:27px;border-radius:7px;background:#116a55;flex:none}
+#page-qr-checkin #bang1QrNext{margin-top:12px}
+@media(max-width:610px){
+  #page-qr-checkin .bang1-qr-manual-controls{flex-direction:column;align-items:stretch}
+  #page-qr-checkin .bang1-qr-manual-controls button{width:100%}
+  #page-qr-checkin .bang1-qr-controls button{flex:1 1 145px}
+  #page-qr-checkin .bang1-qr-runner img,#page-qr-checkin .bang1-qr-fallback{width:58px;height:74px}
+}
