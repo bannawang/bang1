@@ -23,8 +23,10 @@
   };
   const notice=(value,kind='info')=>{
     const n=el('bang1QrStatus');if(!n)return;
-    n.textContent=String(value??'');
-    n.dataset.kind=kind;
+    const text=String(value??'').trim();
+    n.textContent=text;
+    n.dataset.kind=text?kind:'idle';
+    n.hidden=!text;
   };
   function stopCamera(){
     scanGeneration++;
@@ -34,7 +36,7 @@
     const video=el('bang1QrVideo');
     if(video){video.pause();video.srcObject=null;}
     const panel=el('bang1QrCamera');if(panel)panel.hidden=true;
-    const stop=el('bang1QrStop');if(stop)stop.disabled=true;
+    const stop=el('bang1QrStop');if(stop){stop.disabled=true;stop.hidden=true;}
     const start=el('bang1QrStart');if(start)start.disabled=!activeKey;
   }
   function resetCard(){
@@ -262,11 +264,11 @@
     el('bang1QrCount').textContent=final?'รอบชิง · ดูอย่างเดียว':
       count+'/'+cap+' คน';
     let markup='<div class="bang1-qr-school"><strong>'+esc(team.school)+
-      '</strong><small>ใบสมัคร #'+Number(team.regId)+
+      '</strong><small>#'+Number(team.regId)+
       (team.heat?' · ฮีท '+Number(team.heat):'')+
       (team.lane?' · ลู่ '+Number(team.lane):'')+'</small></div>';
     if(!Array.isArray(team.athletes)||team.athletes.length===0)
-      markup+='<p class="bang1-qr-help">ยังไม่มีนักกรีฑาที่ได้รับการเลือกในรายการนี้</p>';
+      markup+='<p class="bang1-qr-empty">ยังไม่มีนักกรีฑา</p>';
     for(const athlete of team.athletes||[]){
       const checked=athlete.checkedAt!=null;
       const disabled=full&&!checked;
@@ -280,9 +282,9 @@
         ' aria-label="เช็กชื่อ '+esc(athlete.name)+'">';
       markup+='<label class="bang1-qr-runner'+(checked?' is-checked':'')+'">'+
         control+photo+'<span><strong>'+esc(athlete.name)+'</strong><small>'+
-        (final?'รอบชิง · แก้ไขเฉพาะรอบคัดเลือก':
-        checked?'✓ รายงานตัวแล้ว · เอาเครื่องหมายถูกออกเพื่อเปลี่ยนตัวได้':
-        disabled?'ครบจำนวนแล้ว · ยกเลิกคนเดิมก่อน':'ยังไม่รายงานตัว')+
+        (final?'🔒 รอบชิง · ดูอย่างเดียว':
+        checked?'✓ เช็กชื่อแล้ว':
+        disabled?'เต็มจำนวน':'แตะเพื่อเช็กชื่อ')+
         '</small></span></label>';
     }
     panel.innerHTML=markup;
@@ -348,7 +350,15 @@
       }
       scannedRegId=Number(result.registrationId);
       applyState(state);
-      notice('✅ สแกนสำเร็จ · '+result.school+' · เลือกนักกรีฑาที่มารายงานตัวได้เลย','success');
+      notice('✓ '+result.school,'success');
+      el('bang1QrManual').value='';
+      el('bang1QrManual').blur();
+      if(onPage()){
+        el('bang1QrResultCard')?.scrollIntoView({
+          behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',
+          block:'nearest'
+        });
+      }
     }catch(err){
       notice(err.message||'ไม่สามารถอ่าน QR ของใบสมัครนี้','error');
     }finally{busy=false;}
@@ -364,7 +374,7 @@
   async function startCamera(){
     if(busy||!activeKey){notice('กรุณาเลือกรายการแข่งขันก่อนเปิดกล้อง','error');return;}
     if(!navigator.mediaDevices?.getUserMedia){
-      notice('เบราว์เซอร์นี้ไม่รองรับกล้อง โปรดใช้รูป QR หรือกรอกเลขใบสมัคร','error');
+      notice('เปิดกล้องไม่ได้ · ใช้เลขใบสมัครแทน','error');
       return;
     }
     stopCamera();
@@ -383,8 +393,9 @@
       el('bang1QrCamera').hidden=false;
       el('bang1QrStart').disabled=true;
       el('bang1QrStop').disabled=false;
+      el('bang1QrStop').hidden=false;
       await video.play();
-      notice('หันกล้องไปที่ QR บนใบสมัคร ให้ QR อยู่ภายในกรอบ');
+      notice('เล็ง QR ในกรอบสีเขียว');
       lastDecodeAt=0;
       const scan=time=>{
         if(generation!==scanGeneration||!stream||!onPage())return;
@@ -406,31 +417,8 @@
       frameId=requestAnimationFrame(scan);
     }catch(error){
       stopCamera();
-      notice('เปิดกล้องไม่สำเร็จ โปรดอนุญาตสิทธิ์กล้อง หรือใช้รูป QR แทน','error');
+      notice('เปิดกล้องไม่ได้ · อนุญาตกล้องหรือกรอกเลขใบสมัคร','error');
     }
-  }
-  async function decodeFile(event){
-    const file=event.target.files?.[0];
-    event.target.value='';
-    if(!file)return;
-    if(!file.type.startsWith('image/')||file.size>8*1024*1024){
-      notice('กรุณาเลือกไฟล์ภาพ QR ขนาดไม่เกิน 8 MB','error');return;
-    }
-    const url=URL.createObjectURL(file);
-    try{
-      const image=new Image();
-      await new Promise((resolve,reject)=>{
-        image.onload=resolve;image.onerror=reject;image.src=url;
-      });
-      const canvas=el('bang1QrCanvas'),scale=Math.min(1,1600/image.naturalWidth);
-      canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));
-      canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));
-      canvas.getContext('2d',{willReadFrequently:true}).drawImage(image,0,0,canvas.width,canvas.height);
-      const raw=readFromCanvas(canvas);
-      if(!raw)throw Error('ไม่พบ QR ในรูปภาพนี้');
-      await lookup(raw);
-    }catch(err){notice(err.message||'อ่าน QR จากรูปภาพไม่สำเร็จ','error');}
-    finally{URL.revokeObjectURL(url);}
   }
   async function setAthlete(event){
     const input=event.target.closest('input[data-athlete]');
@@ -444,7 +432,7 @@
       });
       const state=await request('live_manager_data');
       applyState(state);
-      notice(result.message||'บันทึกรายงานตัวแล้ว','success');
+      notice(checked?'✓ เช็กชื่อแล้ว':'✓ ยกเลิกชื่อแล้ว','success');
     }catch(err){
       notice(err.message||'บันทึกไม่สำเร็จ','error');
       try{applyState(await request('live_manager_data'));}catch(_){}
@@ -484,7 +472,6 @@
     document.addEventListener('scroll',positionPicker,true);
     el('bang1QrStart').addEventListener('click',()=>void startCamera());
     el('bang1QrStop').addEventListener('click',()=>{stopCamera();notice('ปิดกล้องแล้ว');});
-    el('bang1QrFile').addEventListener('change',event=>void decodeFile(event));
     el('bang1QrManualSubmit').addEventListener('click',()=>{
       void lookup(el('bang1QrManual').value.trim());
     });
