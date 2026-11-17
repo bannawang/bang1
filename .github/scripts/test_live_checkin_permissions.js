@@ -39,7 +39,7 @@ for(const script of ['role-guidance.js','admin-tabs.js']){
  assert(html.includes(script+'?v=20261110-manager-checkin24'),
    'New version of '+script+' must bypass old browser cache');
 }
-assert(html.includes('live-manager.js?v=20261117-locked-finalist4'),
+assert(html.includes('live-manager.js?v=20261117-prelim-edit-final-readonly5'),
  'Latest LIVE manager controller must bypass old browser cache');
 const state={window:{},document:{readyState:'loading',addEventListener(){}}};
 vm.createContext(state);
