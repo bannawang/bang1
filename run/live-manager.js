@@ -35,8 +35,13 @@
   function isQualifiedFinal(f){
     return f?.qualifiedFinal===true && isFinalFixture(f);
   }
+  function isPendingFinal(f){
+    return f?.pendingFinal===true && isFinalFixture(f);
+  }
   function livePickerSorted(fixtures){
-    return [...fixtures].sort((a,b)=>Number(isQualifiedFinal(b))-Number(isQualifiedFinal(a)));
+    // Validated finalists first, waiting finals next; other items retain their order.
+    const priority=f=>isQualifiedFinal(f)?0:isPendingFinal(f)?1:2;
+    return [...fixtures].sort((a,b)=>priority(a)-priority(b));
   }
   function fixtureTitle(f){
     return 'รายการที่ '+(f.eventNumberLabel||f.eventId||'—')+' · '+(f.eventName||'ไม่ระบุรายการ');
@@ -117,7 +122,10 @@
       option.className='bang1-fixture-option'+
         (isFinalFixture(f)?' is-final':'')+
         (isQualifiedFinal(f)?' is-qualified-final':'')+
+        (isPendingFinal(f)?' is-pending-final':'')+
         (selected===f.key?' is-selected':'');
+      option.disabled=isPendingFinal(f);
+      option.setAttribute('aria-disabled',option.disabled?'true':'false');
       option.setAttribute('role','option');
       option.setAttribute('aria-selected',selected===f.key?'true':'false');
       option.dataset.key=f.key;
@@ -130,12 +138,17 @@
         '<span class="bang1-fixture-option-meta">'+
           '<span class="bang1-fixture-round">'+
             (isQualifiedFinal(f)?'✅ ผ่านคัดเลือก · รอบชิง':
+              isPendingFinal(f)?'⏳ รอบชิง · รอผลคัดเลือก':
               isFinalFixture(f)?'🏆 รอบชิง':esc(f.round||'รอยืนยันรอบ'))+'</span>'+
           '<small>'+(isQualifiedFinal(f)?
              Number(f.teams||0)+' โรงเรียน · พร้อมปล่อย LIVE':
+             isPendingFinal(f)?
+              Number(f.qualificationSavedHeats||0)+'/'+Number(f.qualificationRequiredHeats||2)+
+              ' ฮีท · ยังไม่เปิดให้ปล่อย LIVE':
              Number(f.checked||0)+'/'+Number(f.total||0)+' คน')+'</small>'+
         '</span>';
       option.addEventListener('click',()=>{
+        if(isPendingFinal(f))return;
         if(el('bang1ActiveFixture').value!==f.key){
           el('bang1ActiveFixture').value=f.key;
           el('bang1ActiveFixture').dispatchEvent(new Event('change',{bubbles:true}));
@@ -151,9 +164,10 @@
     }
     list.scrollTop=scrollToReady&&fixtureRound!=='prelim'&&!query?0:previousScroll;
     const readyTotal=fixtureItems.filter(isQualifiedFinal).length;
+    const pendingTotal=fixtureItems.filter(isPendingFinal).length;
     footer.textContent='แสดง '+visible.length+' จาก '+fixtureItems.length+
-      ' รายการแข่งขัน · รอบชิงที่ผ่านคัดเลือกแล้ว '+readyTotal+
-      ' รายการอยู่ด้านบน · อัปเดตอัตโนมัติ';
+      ' รายการแข่งขัน · พร้อมรอบชิง '+readyTotal+
+      ' · รอผลคัดเลือก '+pendingTotal+' · อัปเดตอัตโนมัติ';
     el('bang1FixturePopover').querySelectorAll('[data-round]').forEach(btn=>{
       const active=btn.dataset.round===fixtureRound;
       btn.classList.toggle('is-active',active);
@@ -172,7 +186,8 @@
     trigger.setAttribute('aria-expanded','true');
     lastMenuHash=JSON.stringify([
       el('bang1ActiveFixture')?.value,
-      fixtureItems.map(f=>[f.key,f.checked,f.total,f.round,f.qualifiedFinal,f.teams])
+      fixtureItems.map(f=>[f.key,f.checked,f.total,f.round,f.qualifiedFinal,
+        f.pendingFinal,f.teams,f.qualificationSavedHeats,f.qualificationRequiredHeats])
     ]);
     renderFixtureOptions();
     positionFixtureMenu();
@@ -301,7 +316,8 @@
     const select=el('bang1ActiveFixture');
     const selected=select.value;
     const fixtures=Array.isArray(data.fixtures)?data.fixtures:[];
-    fixtureItems=fixtures;
+    const pending=Array.isArray(data.pendingFinals)?data.pendingFinals:[];
+    fixtureItems=[...fixtures,...pending];
     const readyKeys=new Set(fixtures.filter(isQualifiedFinal).map(f=>f.key));
     const newReadyFinal=receivedFirstFixtureList&&
       [...readyKeys].some(key=>!knownReadyFinalKeys.has(key));
@@ -317,7 +333,8 @@
     if(!switchInFlight)select.value=data.active?.key||'';
     updateFixtureTrigger();
     const menuHash=JSON.stringify([
-      select.value,fixtures.map(f=>[f.key,f.checked,f.total,f.round,f.qualifiedFinal,f.teams])
+      select.value,fixtureItems.map(f=>[f.key,f.checked,f.total,f.round,f.qualifiedFinal,
+        f.pendingFinal,f.teams,f.qualificationSavedHeats,f.qualificationRequiredHeats])
     ]);
     // Four-second background refresh must not erase keyboard focus or scroll
     // position inside an open competition picker.

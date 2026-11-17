@@ -205,6 +205,16 @@
 }
 .bang1-fixture-option.is-final .bang1-fixture-option-meta>small{color:#356e5b}
 .bang1-fixture-option.is-final.is-selected{border:2px solid #0b9b64;background:#baf3cf}
+.bang1-fixture-option.is-pending-final,
+.bang1-fixture-option.is-pending-final:disabled{
+  cursor:not-allowed;opacity:.92;
+  background:linear-gradient(110deg,#f0f4f8,#dfebf1);
+  border:1px dashed #a1b5c5;color:#3d5260;
+}
+.bang1-fixture-option.is-pending-final .bang1-fixture-round{
+  color:#854d0e;background:#fef3c7;border-color:#facc15;
+}
+.bang1-fixture-option.is-pending-final .bang1-fixture-option-meta>small{color:#6b7280;}
 .bang1-fixture-option.is-qualified-final{
   border:2px solid #11a568;background:linear-gradient(110deg,#c3f5d7,#9ce8c1);
   box-shadow:inset 4px 0 0 #059669;

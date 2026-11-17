@@ -488,6 +488,29 @@ function live_latest_results():array {
 
 function live_dataset(bool $manager=false,?string $sportFixtureKey=null):array {
     $schedule=event_schedule_data();
+    // Manager-only pending finalists are information, NEVER selectable public fixtures.
+    $pendingFinals=[];
+    if($manager){
+        foreach($schedule as $line){
+            if(($line['QualificationPending']??false)!==true
+                ||(string)($line['HeatPlan']??'')!=='ชิง')continue;
+            $id=(int)($line['EventID']??0);
+            if($id<=0)continue;
+            $pendingFinals[]=[
+                'key'=>'pending-final-'.$id,
+                'eventId'=>$id,'eventNumberLabel'=>(string)$id,
+                'eventName'=>(string)($line['EventName']??''),
+                'category'=>(string)($line['Category']??''),
+                'level'=>(string)($line['Level']??''),
+                'gender'=>(string)($line['Gender']??''),
+                'heat'=>1,'heats'=>[],'round'=>'รอบชิง',
+                'pendingFinal'=>true,'qualifiedFinal'=>false,
+                'qualificationSavedHeats'=>(int)($line['QualificationSavedHeats']??0),
+                'qualificationRequiredHeats'=>(int)($line['QualificationRequiredHeats']??2),
+                'checked'=>0,'total'=>0,'teams'=>0
+            ];
+        }
+    }
     $roundIndex=live_official_round_index($schedule);
     $heatSlots=live_schedule_heat_slots($schedule);
     $order=[];
@@ -683,6 +706,7 @@ function live_dataset(bool $manager=false,?string $sportFixtureKey=null):array {
         'active'=>$active,
         'activeUpdatedAt'=>$state['updated_at']??null,
         'fixtures'=>$fixtures,
+        'pendingFinals'=>$manager?$pendingFinals:[],
         'schools'=>$columns,
         'teams'=>$teams,
         'recent'=>array_slice($recent,0,10),
