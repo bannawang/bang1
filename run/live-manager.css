@@ -68,6 +68,12 @@
 /* Existing over-limit check-ins remain editable instead of being discarded. */
 #page-checkin .bang1-oversubscribed{padding:9px 12px;background:#6d3715;color:#ffdbad;border-bottom:1px solid #c5874c;font-weight:750;font-size:.85rem;line-height:1.45}
 #page-checkin .bang1-athlete-row:has(input:disabled){cursor:not-allowed;opacity:.68}
+#page-checkin .bang1-final-readonly{
+  display:inline-grid;place-items:center;flex:none;width:25px;height:25px;
+  border:1px solid #44b993;border-radius:7px;background:#0b514b;
+  color:#b1fce0;font-size:14px;
+}
+#page-checkin .bang1-athlete-row:has(.bang1-final-readonly){cursor:default;}
 
 
 /* Athletics Live: compact searchable competition picker.

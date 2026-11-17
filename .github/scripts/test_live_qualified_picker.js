@@ -41,5 +41,5 @@ assert(js.includes('const pending=Array.isArray(data.pendingFinals)'),'Manager r
 assert(js.includes('option.disabled=isPendingFinal(f)'),'Pending fixture cannot be selected');
 assert(js.includes('ยังไม่เปิดให้ปล่อย LIVE'),'Pending final label explains status');
 assert(css.includes('.bang1-fixture-option.is-qualified-final'),'Ready finals are visually distinct');
-assert(html.includes('live-manager.js?v=20261117-locked-finalist4'),'Manager browser cache is invalidated');
+assert(html.includes('live-manager.js?v=20261117-prelim-edit-final-readonly5'),'Manager browser cache is invalidated');
 console.log('PASS LIVE manager chooser: grouped qualifying heats in official order, ready finals, fast refresh');
