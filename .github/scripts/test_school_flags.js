@@ -37,7 +37,7 @@ const state={esc};
 vm.createContext(state);
 const functionsStart=js.indexOf('  function athleteCard(person,sport=false){');
 const errorHandler=js.indexOf('  document.addEventListener(',functionsStart);
-const schoolStart=js.indexOf('  function schoolCell(school,sport=false){');
+const schoolStart=js.indexOf('  function schoolCell(school,sport=false,qualifiedFinal=false){');
 const schoolEnd=js.indexOf('  function paintSchools(',schoolStart);
 assert(functionsStart>=0&&errorHandler>functionsStart&&schoolStart>0&&schoolEnd>schoolStart,
   'School and flag renderers must be discoverable');
@@ -58,6 +58,16 @@ assert(!waiting.slice(waiting.indexOf('<header'),waiting.indexOf('</header>')).i
 const noEntry=state.schoolCell({...registered,registered:false,heats:[]});
 assert(noEntry.includes('school-empty-state is-no-entry'),'No entry is visually distinct');
 assert(noEntry.includes('ไม่ได้ส่งแข่ง'),'A non-entered school must say it did not enter');
+const eliminated=state.schoolCell({...registered,registered:false,heats:[]},false,true);
+assert(eliminated.includes('ไม่ผ่านการเข้ารอบ'),
+ 'A school outside a qualifying final must be labeled eliminated');
+assert(!eliminated.includes('ไม่ได้ส่งแข่ง'),
+ 'Qualifying final schools must not be described as never entered');
+assert(eliminated.includes('school-flag-empty-body'),
+ 'Eliminated school keeps its logo on the LIVE board');
+const finalRunner=state.schoolCell({...registered,athletes:[{name:'นักกรีฑาผ่านรอบ',photo:null}]},false,true);
+assert(finalRunner.includes('นักกรีฑาผ่านรอบ')&&!finalRunner.includes('ไม่ผ่านการเข้ารอบ'),
+ 'The qualified team continues showing the athlete, not the eliminated label');
 assert(noEntry.includes('school-flag-empty-body'),'No entry must KEEP the logo on screen');
 assert(!noEntry.includes('รอรายงานตัว'),'No entry is not a waiting check-in');
 const checked=state.schoolCell({...registered,athletes:[
