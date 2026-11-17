@@ -26,6 +26,18 @@ function bang1_event_age_limit(string $eventName): ?int {
     $age=(int)$m[1];
     return $age>0 && $age<100 ? $age : null;
 }
+/** Maximum distinct schools per race. Based on the EVENT age group. */
+function bang1_event_school_limit(string $eventName): ?int {
+    $age=bang1_event_age_limit($eventName);
+    return $age!==null && $age>=14 ? 8 : null;
+}
+/** Existing school can edit its own entry even if the race has filled. */
+function bang1_school_registration_quota_full(
+    string $eventName, int $registeredSchools, bool $editingSameSchoolInRace
+): bool {
+    $limit=bang1_event_school_limit($eventName);
+    return $limit!==null && !$editingSameSchoolInRace && $registeredSchools >= $limit;
+}
 function bang1_runner_age_at_year(int $birthYear, int $competitionYearBE): ?int {
     $age=$competitionYearBE-$birthYear;
     return $birthYear>0 && $age>=1 && $age<=100 ? $age : null;

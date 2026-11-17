@@ -2312,6 +2312,7 @@ document.addEventListener('DOMContentLoaded',function(){
         <select id="regEventName">
           <option value="">-- เลือกรายการวิ่ง --</option>
         </select>
+        <small style="display:block;color:#94a3b8;margin-top:5px;">รุ่นอายุ 14 ปีขึ้นไป รับสมัครได้ไม่เกิน 8 โรงเรียนต่อรายการ · รายการเต็มไม่สามารถเลือกได้</small>
       </div>
 
       <div class="field">
@@ -5409,7 +5410,18 @@ const proofBtnExtraClass = hasProof
       const opt = { sensitivity: 'base', numeric: true };
       const sortedNames = Array.from(nameSet).sort((a, b) => a.localeCompare(b, 'th', opt));
 
-      sortedNames.forEach(name => sel.appendChild(mkOpt(name, name)));
+      sortedNames.forEach(name => {
+        const ev = findMainEventForRegistration(name);
+        const limit = Number(ev?.RegistrationLimit || 0);
+        const enrolled = Number(ev?.RegisteredSchools || 0);
+        const full = limit > 0 && enrolled >= limit;
+        const label = full
+          ? name + ' — ไม่สามารถสมัครได้อีกเนื่องจากทีมแข่งขันเต็มแล้ว (' + enrolled + '/' + limit + ' โรงเรียน)'
+          : (limit > 0 ? name + ' — สมัครแล้ว ' + enrolled + '/' + limit + ' โรงเรียน' : name);
+        const option = mkOpt(name, label);
+        option.disabled = full;
+        sel.appendChild(option);
+      });
 
       if (prev && Array.from(sel.options).some(o => o.value === prev)) {
         sel.value = prev;
@@ -5840,6 +5852,10 @@ const proofBtnExtraClass = hasProof
       if (typeof refreshEventDropdown === 'function') {
         refreshEventDropdown();
       }
+      google.script.run.withSuccessHandler(list => {
+        eventsData = Array.isArray(list) ? list : [];
+        buildEventDropdown();
+      }).getEvents();
     })
     .withFailureHandler(err => {
       showGlobalLoading(false);

@@ -263,7 +263,12 @@ if($action==='update_status'){
  json_out(['success'=>true,'reviewMode'=>$reviewMode]);
 }
 if($action==='events'){
- $ev=rows('SELECT id EventID,name EventName,category Category,level Level,gender Gender,remark Remark,heat Heat,heat_plan HeatPlan,team_count TeamCount,total_teams TotalTeams,stage Stage,ranking_json Ranking FROM events ORDER BY source_order,id');
+ // Count enrolled schools across all heats/final rows of the same race.
+ $ev=rows('SELECT e.id EventID,e.name EventName,e.category Category,e.level Level,e.gender Gender,e.remark Remark,e.heat Heat,e.heat_plan HeatPlan,e.team_count TeamCount,e.total_teams TotalTeams,e.stage Stage,e.ranking_json Ranking,
+  (SELECT COUNT(DISTINCT r.school_name) FROM registrations r WHERE r.event_name=e.name AND r.category <=> e.category AND r.level <=> e.level) RegisteredSchools
+  FROM events e ORDER BY e.source_order,e.id');
+ foreach($ev as &$item)$item['RegistrationLimit']=bang1_event_school_limit((string)$item['EventName']);
+ unset($item);
  json_out(['success'=>true,'data'=>$ev]);
 }
 if($action==='registrations'){
@@ -281,15 +286,12 @@ if($action==='save_registration'){
  // Resolve all sign-ups to one canonical EventID: prefer a non-final slot
  // when one exists, otherwise use the earliest slot as the main event.
  // The latter is NOT a reason to reject an otherwise valid registration.
- if(event_is_final($ev)){
-    $slots=rows("SELECT * FROM events WHERE name=? AND category <=> ? AND level <=> ? AND gender <=> ? ORDER BY source_order,id",
-        [$ev['name'],$ev['category'],$ev['level'],$ev['gender']]);
-    $main=null;
-    foreach($slots as $slot){
-      if(!event_is_final($slot)){$main=$slot;break;}
-    }
-    $ev=$main??($slots[0]??$ev);
- }
+ // Canonicalise ALL heat/final slots so they share one capacity lock.
+ $slots=rows("SELECT * FROM events WHERE name=? AND category <=> ? AND level <=> ? AND gender <=> ? ORDER BY source_order,id",
+     [$ev['name'],$ev['category'],$ev['level'],$ev['gender']]);
+ $main=null;
+ foreach($slots as $slot)if(!event_is_final($slot)){$main=$slot;break;}
+ $ev=$main??($slots[0]??$ev);
  $ids=array_unique(array_values(array_filter(array_map('intval',(array)($input['runnerIds']??[])))));
  $max=$ev['category']==='วิ่งผลัด'?6:2;
  if(count($ids)<1||count($ids)>$max)json_out(['success'=>false,'message'=>'จำนวนผู้สมัครไม่ถูกต้อง'],422);
@@ -311,11 +313,36 @@ if($action==='save_registration'){
   if($ev['gender']&&$r['gender']!==$ev['gender'])json_out(['success'=>false,'message'=>'เพศนักวิ่งไม่ตรงรายการ'],422);
  }
  $school=$runners[0]['school_name'];foreach($runners as $r)if($r['school_name']!==$school)json_out(['success'=>false,'message'=>'นักวิ่งต้องมาจากโรงเรียนเดียวกัน'],422);
- $old=$id?single('SELECT * FROM registrations WHERE id=?',[$id]):null;
+ $pdo=db();
+ $pdo->beginTransaction();
+ try {
+  // All sign-ups to one race take the SAME event row lock.
+  // Two schools saving concurrently cannot both claim the eighth slot.
+  $raceLock=$pdo->prepare('SELECT id FROM events WHERE id=? FOR UPDATE');
+  $raceLock->execute([(int)$ev['id']]);
+  if(!$raceLock->fetchColumn()){
+    $pdo->rollBack();
+    json_out(['success'=>false,'message'=>'ไม่พบรายการแข่งขัน'],422);
+  }
+  $old=$id?single('SELECT * FROM registrations WHERE id=?',[$id]):null;
  if($id&&!$old)json_out(['success'=>false,'message'=>'ไม่พบใบสมัคร'],404);
  if($old)school_access($u,$old['school_name']);
  $dup=single('SELECT id FROM registrations WHERE event_name=? AND category <=> ? AND level <=> ? AND school_name=? AND id<>? LIMIT 1',[$ev['name'],$ev['category'],$ev['level'],$school,$id]);
  if($dup)json_out(['success'=>false,'message'=>'โรงเรียนสมัครรายการนี้แล้ว'],409);
+ if(bang1_event_school_limit((string)$ev['name'])!==null){
+   $countRow=single('SELECT COUNT(DISTINCT school_name) AS registered_schools FROM registrations WHERE event_name=? AND category <=> ? AND level <=> ?',
+     [$ev['name'],$ev['category'],$ev['level']]);
+   $registeredSchools=(int)($countRow['registered_schools']??0);
+   $editingSameSchoolInRace=$old!==null
+     && $old['event_name']===$ev['name']
+     && $old['category']===$ev['category']
+     && $old['level']===$ev['level']
+     && $old['school_name']===$school;
+   if(bang1_school_registration_quota_full((string)$ev['name'],$registeredSchools,$editingSameSchoolInRace)){
+     $pdo->rollBack();
+     json_out(['success'=>false,'message'=>'ไม่สามารถสมัครได้อีกเนื่องจากทีมแข่งขันเต็มแล้ว (ครบ 8 โรงเรียน)'],409);
+   }
+ }
  $byId=[];foreach($runners as $r)$byId[$r['id']]=$r;
  $ordered=array_map(fn($rid)=>$byId[$rid],$ids);
  $names=implode(',',array_map(fn($r)=>$r['first_name'].' '.$r['last_name'],$ordered));
@@ -331,6 +358,11 @@ if($action==='save_registration'){
     ->execute([$ev['id'],$ev['name'],$ev['category'],$ev['level'],$school,implode(',',$ids),$names,$photos,$genders,$ages,$key,$u['name']]);$id=(int)db()->lastInsertId();
  }
  log_action($old?'REG_UPDATE':'REG_CREATE',$u,'Registration',(string)$id);
+ $pdo->commit();
+ } catch(Throwable $e) {
+   if($pdo->inTransaction())$pdo->rollBack();
+   throw $e;
+ }
  json_out(['success'=>true,'id'=>$id]);
 }
 if($action==='delete_registration'){
