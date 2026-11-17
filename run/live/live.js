@@ -53,7 +53,7 @@
       flag.replaceWith(placeholder);
     }else flag.remove();
   },true);
-  function schoolCell(school,sport=false){
+  function schoolCell(school,sport=false,qualifiedFinal=false){
     const athletes=Array.isArray(school.athletes)?school.athletes:[];
     // This is the server's REGISTERED entry flag, not the athlete check-in
     // status. Only checked-in athletes are sent to the public Check-in board.
@@ -80,7 +80,11 @@
           athletes.map(a=>athleteCard(a,sport)).join('')+
         '</div></section>';
     }
-    const label=entered?(sport?'รอภาพนักกรีฑา':'รอรายงานตัว'):'ไม่ได้ส่งแข่ง';
+    // A school not in the official six-school qualifying final was
+    // eliminated from the preliminary round, not absent from registration.
+    // Keep the original label for direct finals and ordinary rounds.
+    const label=entered?(sport?'รอภาพนักกรีฑา':'รอรายงานตัว'):
+      (qualifiedFinal?'ไม่ผ่านการเข้ารอบ':'ไม่ได้ส่งแข่ง');
     const runnerIcon=entered?
       '<svg class="waiting-runner" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="นักวิ่ง">'+
         '<circle cx="24" cy="7" r="3.4" fill="currentColor" stroke="none"/>'+
@@ -93,12 +97,12 @@
       (entered?' is-waiting':' is-not-entered')+'">'+header+
       '<div class="school-empty-state '+(entered?'is-waiting':'is-no-entry')+'">'+
         // A registered team waiting for check-in shows ONLY the running
-        // pictogram and label. Keep its school crest for "ไม่ได้ส่งแข่ง".
+        // pictogram and label. Preserve the school crest for non-finalists.
         (entered?'':'<div class="school-empty-crest">'+crest+'</div>')+
         '<div class="school-empty-caption">'+runnerIcon+'<span>'+esc(label)+'</span></div>'+
       '</div></section>';
   }
-  function paintSchools(schools,sport=false){
+  function paintSchools(schools,sport=false,qualifiedFinal=false){
     // Never fabricate "ไม่ได้ส่งแข่ง" for the whole race when an API list
     // temporarily contains 11+ schools. Preserve genuine school registrations.
     const valid=Array.isArray(schools)
@@ -108,7 +112,7 @@
       grid.innerHTML='<div class="loading">ข้อมูลสถานะโรงเรียนยังไม่พร้อม กรุณาตรวจสอบการเชื่อมต่อ</div>';
       return;
     }
-    grid.innerHTML=valid.map(s=>schoolCell(s,sport)).join('');
+    grid.innerHTML=valid.map(s=>schoolCell(s,sport,qualifiedFinal)).join('');
     for(const img of grid.querySelectorAll('.athlete-portrait img')){
       img.addEventListener('error',function(){
         const fallback=document.createElement('span');
@@ -183,7 +187,7 @@
       String(active.eventNumberLabel||Number(active.eventId)||Number(active.order)||'—'):'—';
     el('fixtureTitle').textContent=active?active.eventName:'รอ Manager เลือกรายการแข่งขัน';
     el('roundLabel').textContent=active?(active.round||'รอยืนยันรอบ'):'ยังไม่เริ่ม';
-    paintSchools(payload.schools,false);
+    paintSchools(payload.schools,false,active?.qualifiedFinal===true);
     nextEvent(next);
   }
   function getSportFixture(key){
