@@ -5,6 +5,7 @@
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   let snapshot=null,busy=false,loading=false,filter='',lastActionAt=0,lastRosterHash='',lastNextRosterHash='',lastOptionHash='',pendingFixtureKey=null,switchInFlight=false;
   let fixtureItems=[],fixtureMenuOpen=false,fixtureQuery='',fixtureRound='all',lastMenuHash='';
+  let lastManagerFetchAt=0,knownReadyFinalKeys=new Set(),receivedFirstFixtureList=false;
   function isManager(){
     const user=typeof currentUser==='undefined'?null:currentUser;
     return !!user&&(user.role==='Admin'||user.role==='TopAdmin'||
@@ -28,6 +29,14 @@
   }
   function isFinalFixture(f){
     return /^(รอบชิง|ชิงชนะเลิศ)/.test(String(f?.round||''));
+  }
+  // Only validated finalists promoted by the official qualifying results
+  // receive this priority. Direct finals retain their ordinary schedule order.
+  function isQualifiedFinal(f){
+    return f?.qualifiedFinal===true && isFinalFixture(f);
+  }
+  function livePickerSorted(fixtures){
+    return [...fixtures].sort((a,b)=>Number(isQualifiedFinal(b))-Number(isQualifiedFinal(a)));
   }
   function fixtureTitle(f){
     return 'รายการที่ '+(f.eventNumberLabel||f.eventId||'—')+' · '+(f.eventName||'ไม่ระบุรายการ');
@@ -80,17 +89,20 @@
     menu.style.width=width+'px';
     menu.style.maxHeight=Math.max(120,Math.min(desiredHeight,available))+'px';
   }
-  function renderFixtureOptions(){
+  function renderFixtureOptions(scrollToReady=false){
     const list=el('bang1FixtureList'),footer=el('bang1FixtureResults');
     if(!list||!footer)return;
+    const previousScroll=list.scrollTop;
+    const focusedKey=list.contains(document.activeElement)?
+      document.activeElement.closest('[data-key]')?.dataset.key:null;
     const query=fixtureQuery.toLocaleLowerCase('th').replace(/\s+/g,'');
-    const visible=fixtureItems.filter(f=>{
+    const visible=livePickerSorted(fixtureItems.filter(f=>{
       if(fixtureRound==='final'&&!isFinalFixture(f))return false;
       if(fixtureRound==='prelim'&&isFinalFixture(f))return false;
       const haystack=[fixtureTitle(f),fixtureDetails(f),f.round||'']
         .join(' ').toLocaleLowerCase('th').replace(/\s+/g,'');
       return !query||haystack.includes(query);
-    });
+    }));
     list.replaceChildren();
     if(!visible.length){
       const empty=document.createElement('p');
@@ -104,6 +116,7 @@
       option.type='button';
       option.className='bang1-fixture-option'+
         (isFinalFixture(f)?' is-final':'')+
+        (isQualifiedFinal(f)?' is-qualified-final':'')+
         (selected===f.key?' is-selected':'');
       option.setAttribute('role','option');
       option.setAttribute('aria-selected',selected===f.key?'true':'false');
@@ -115,8 +128,12 @@
           '<small>'+esc(fixtureDetails(f))+'</small>'+
         '</span>'+
         '<span class="bang1-fixture-option-meta">'+
-          '<span class="bang1-fixture-round">'+(isFinalFixture(f)?'🏆 รอบชิง':esc(f.round||'รอยืนยันรอบ'))+'</span>'+
-          '<small>'+Number(f.checked||0)+'/'+Number(f.total||0)+' คน</small>'+
+          '<span class="bang1-fixture-round">'+
+            (isQualifiedFinal(f)?'✅ ผ่านคัดเลือก · รอบชิง':
+              isFinalFixture(f)?'🏆 รอบชิง':esc(f.round||'รอยืนยันรอบ'))+'</span>'+
+          '<small>'+(isQualifiedFinal(f)?
+             Number(f.teams||0)+' โรงเรียน · พร้อมปล่อย LIVE':
+             Number(f.checked||0)+'/'+Number(f.total||0)+' คน')+'</small>'+
         '</span>';
       option.addEventListener('click',()=>{
         if(el('bang1ActiveFixture').value!==f.key){
@@ -128,7 +145,15 @@
       });
       list.appendChild(option);
     });
-    footer.textContent='แสดง '+visible.length+' จาก '+fixtureItems.length+' รายการแข่งขัน · รอบชิงพื้นสีเขียวอ่อน';
+    if(focusedKey){
+      const focused=[...list.querySelectorAll('[data-key]')].find(node=>node.dataset.key===focusedKey);
+      focused?.focus({preventScroll:true});
+    }
+    list.scrollTop=scrollToReady&&fixtureRound!=='prelim'&&!query?0:previousScroll;
+    const readyTotal=fixtureItems.filter(isQualifiedFinal).length;
+    footer.textContent='แสดง '+visible.length+' จาก '+fixtureItems.length+
+      ' รายการแข่งขัน · รอบชิงที่ผ่านคัดเลือกแล้ว '+readyTotal+
+      ' รายการอยู่ด้านบน · อัปเดตอัตโนมัติ';
     el('bang1FixturePopover').querySelectorAll('[data-round]').forEach(btn=>{
       const active=btn.dataset.round===fixtureRound;
       btn.classList.toggle('is-active',active);
@@ -147,10 +172,12 @@
     trigger.setAttribute('aria-expanded','true');
     lastMenuHash=JSON.stringify([
       el('bang1ActiveFixture')?.value,
-      fixtureItems.map(f=>[f.key,f.checked,f.total,f.round])
+      fixtureItems.map(f=>[f.key,f.checked,f.total,f.round,f.qualifiedFinal])
     ]);
     renderFixtureOptions();
     positionFixtureMenu();
+    // Fetch an up-to-date official qualifying result as the chooser opens.
+    void refresh();
     const selected=menu.querySelector('.bang1-fixture-option.is-selected');
     if(selected)selected.scrollIntoView({block:'nearest'});
     if(window.matchMedia('(pointer: fine)').matches)
@@ -275,7 +302,12 @@
     const selected=select.value;
     const fixtures=Array.isArray(data.fixtures)?data.fixtures:[];
     fixtureItems=fixtures;
-    const optionHash=JSON.stringify(fixtures.map(f=>[f.key,f.eventNumberLabel,f.eventName,f.category,f.level,f.gender,f.heat,f.heats,f.round]));
+    const readyKeys=new Set(fixtures.filter(isQualifiedFinal).map(f=>f.key));
+    const newReadyFinal=receivedFirstFixtureList&&
+      [...readyKeys].some(key=>!knownReadyFinalKeys.has(key));
+    knownReadyFinalKeys=readyKeys;
+    receivedFirstFixtureList=true;
+    const optionHash=JSON.stringify(fixtures.map(f=>[f.key,f.eventNumberLabel,f.eventName,f.category,f.level,f.gender,f.heat,f.heats,f.round,f.qualifiedFinal]));
     if(optionHash!==lastOptionHash){
       lastOptionHash=optionHash;
       select.replaceChildren(new Option('เลือกรายการแข่งขัน/ฮีท',''));
@@ -285,13 +317,13 @@
     if(!switchInFlight)select.value=data.active?.key||'';
     updateFixtureTrigger();
     const menuHash=JSON.stringify([
-      select.value,fixtures.map(f=>[f.key,f.checked,f.total,f.round])
+      select.value,fixtures.map(f=>[f.key,f.checked,f.total,f.round,f.qualifiedFinal,f.teams])
     ]);
     // Four-second background refresh must not erase keyboard focus or scroll
     // position inside an open competition picker.
-    if(fixtureMenuOpen&&menuHash!==lastMenuHash){
+    if(fixtureMenuOpen&&(menuHash!==lastMenuHash||newReadyFinal)){
       lastMenuHash=menuHash;
-      renderFixtureOptions();
+      renderFixtureOptions(newReadyFinal);
     }
     const sport=data.display?.mode==='sport';
     const sportBtn=el('bang1SportToggle');
@@ -319,7 +351,7 @@
       render(result);
       if(showNotice)message('อัปเดตข้อมูลล่าสุดเรียบร้อย','success');
     }catch(err){message(err.message||'ไม่สามารถโหลดรายชื่อนักกรีฑาได้','error')}
-    finally{loading=false}
+    finally{lastManagerFetchAt=Date.now();loading=false}
   }
   async function update(action,payload){
     if(busy)return false;
@@ -450,7 +482,14 @@
     const observer=new MutationObserver(()=>{if(activePage())refresh()});
     observer.observe(page,{attributes:true,attributeFilter:['class']});
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh()});
-    setInterval(()=>{if(activePage()&&Date.now()-lastActionAt>1500)refresh()},4000);
+    // While the chooser is open, discover official heat results in roughly
+    // 1.5 seconds. Otherwise retain the lighter four-second normal polling.
+    setInterval(()=>{
+      if(!activePage()||document.visibilityState==='hidden')return;
+      const now=Date.now();
+      const cadence=fixtureMenuOpen?1500:4000;
+      if(now-lastManagerFetchAt>=cadence&&now-lastActionAt>1500)refresh();
+    },500);
     refresh();
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup);

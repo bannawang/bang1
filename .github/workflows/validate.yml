@@ -46,6 +46,8 @@ jobs:
         run: php .github/scripts/test_school_branding.php
       - name: Flag upload and broadcast placement regression
         run: node .github/scripts/test_school_flags.js
+      - name: Manager LIVE final qualification picker refresh regression
+        run: node .github/scripts/test_live_qualified_picker.js
       - name: Manager LIVE check-in permission regression
         run: node .github/scripts/test_live_checkin_permissions.js
       - name: JavaScript syntax

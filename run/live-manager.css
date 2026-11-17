@@ -205,6 +205,16 @@
 }
 .bang1-fixture-option.is-final .bang1-fixture-option-meta>small{color:#356e5b}
 .bang1-fixture-option.is-final.is-selected{border:2px solid #0b9b64;background:#baf3cf}
+.bang1-fixture-option.is-qualified-final{
+  border:2px solid #11a568;background:linear-gradient(110deg,#c3f5d7,#9ce8c1);
+  box-shadow:inset 4px 0 0 #059669;
+}
+.bang1-fixture-option.is-qualified-final .bang1-fixture-round{
+  background:#0c8758;color:#fff;border-color:#04794c;
+}
+.bang1-fixture-option.is-qualified-final .bang1-fixture-option-meta>small{
+  font-weight:850;color:#066241;
+}
 .bang1-fixture-option.is-final:focus-visible{outline-color:#088358}
 .bang1-fixture-no-results{padding:25px 12px;text-align:center;color:#a6c6d5;font-size:.9rem}
 .bang1-fixture-popover-footer{
