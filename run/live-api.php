@@ -613,6 +613,7 @@ function live_dataset(bool $manager=false,?string $sportFixtureKey=null):array {
         if(count($present)===$capacity)$fixtures[$key]['teamsReady']++;
         $team=[
             'regId'=>(int)$r['id'],
+            'lockOnConfirm'=>$round==='รอบคัดเลือก',
             'school'=>(string)$r['school_name'],
             'lane'=>$r['lane']===null?null:(int)$r['lane'],
             'heat'=>$heat,
@@ -822,9 +823,13 @@ if($action==='live_runner_set'){
         json_out(['success'=>false,'message'=>'รายชื่อผู้ผ่านเข้ารอบชิงแสดงเพื่อประชาสัมพันธ์เท่านั้น ยังไม่เปิดรายงานตัวรอบชิง'],409);
     $active=(string)($state['active']['key']??'');
     $available=array_merge($state['teams']??[],$state['nextTeams']??[]);
-    $allowed=false;
+    $allowed=false;$preliminaryLock=false;
     foreach($available as $team)if((int)$team['regId']===$regId
-        &&!($team['qualifiedFinal']??false)){$allowed=true;break;}
+        &&!($team['qualifiedFinal']??false)){
+        $allowed=true;
+        $preliminaryLock=($team['lockOnConfirm']??false)===true;
+        break;
+    }
     if($active===''||!$allowed){
         json_out(['success'=>false,'message'=>'เช็กชื่อได้เฉพาะรายการ Active หรือรายการถัดไปเท่านั้น'],409);
     }
@@ -846,6 +851,9 @@ if($action==='live_runner_set'){
         }
     }
     if(!$valid)json_out(['success'=>false,'message'=>'นักกรีฑาคนนี้ไม่อยู่ในใบสมัครรายการ Active'],422);
+    if(!$checked && $preliminaryLock){
+        json_out(['success'=>false,'message'=>'นักกรีฑาที่ติ๊กยืนยันในรอบคัดเลือกถูกล็อกแล้ว ไม่สามารถยกเลิกหรือเปลี่ยนตัวได้'],409);
+    }
     if($checked){
         $capacity=live_attendance_capacity($reg);
         try{
@@ -861,8 +869,10 @@ if($action==='live_runner_set'){
                 if($used >= $capacity){
                     db()->rollBack();
                     json_out(['success'=>false,'message'=> $capacity===1
-                        ?'วิ่งเดี่ยวรายงานตัวได้เพียง 1 คนต่อทีม กรุณายกเลิกชื่อเดิมก่อนเลือกคนใหม่'
-                        :'วิ่งผลัดรายงานตัวได้ไม่เกิน 4 คนต่อทีม กรุณายกเลิกชื่อเดิมก่อนเลือกคนใหม่'],409);
+                        ?($preliminaryLock?'รอบคัดเลือกยืนยันนักกรีฑาแล้ว ไม่สามารถเปลี่ยนตัวได้':
+                          'วิ่งเดี่ยวรายงานตัวได้เพียง 1 คนต่อทีม กรุณายกเลิกชื่อเดิมก่อนเลือกคนใหม่')
+                        :($preliminaryLock?'รอบคัดเลือกยืนยันนักกรีฑาแล้ว ไม่สามารถเปลี่ยนตัวได้':
+                          'วิ่งผลัดรายงานตัวได้ไม่เกิน 4 คนต่อทีม กรุณายกเลิกชื่อเดิมก่อนเลือกคนใหม่')],409);
                 }
                 $stmt=db()->prepare('INSERT IGNORE INTO race_athlete_checkins (registration_id,athlete_key,checked_by,checked_at) VALUES(?,?,?,NOW())');
                 $stmt->execute([$regId,$athleteKey,(int)$u['coachId']]);

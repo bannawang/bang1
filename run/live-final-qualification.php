@@ -37,6 +37,14 @@ function bang1_live_final_registration_rows(array $schedule,array $sourceRegistr
             }
             $lanes[$lane]=true;$schools[$school]=true;
             $virtual=$source;
+            // A final uses ONLY runners checked in during the qualifier.
+            // An explicitly empty selection stays empty, never all reserves.
+            if(array_key_exists('RunnerIDs',$entry))
+                $virtual['runner_ids']=(string)$entry['RunnerIDs'];
+            if(array_key_exists('RunnerName',$entry))
+                $virtual['runner_names']=(string)$entry['RunnerName'];
+            if(array_key_exists('Photos',$entry))
+                $virtual['photos']=(string)$entry['Photos'];
             $virtual['heat']=1;
             $virtual['lane']=$lane;
             $virtual['_qualified_final']=true;

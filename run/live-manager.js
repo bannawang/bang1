@@ -237,19 +237,22 @@
     buttons[next].focus({preventScroll:true});
     buttons[next].scrollIntoView({block:'nearest'});
   }
-  function athleteCard(athlete,regId,slotsFull=false,finalReadOnly=false){
+  function athleteCard(athlete,regId,slotsFull=false,finalReadOnly=false,lockOnConfirm=false){
     const checked=Boolean(athlete.checkedAt);
-    const disabled=finalReadOnly||(slotsFull&&!checked);
+    const disabled=finalReadOnly||(lockOnConfirm&&checked)||(slotsFull&&!checked);
     const photo=athlete.photo
       ?'<img src="'+esc(athlete.photo)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=&quot;none&quot;">'
       :'<span class="bang1-avatar-fallback" aria-hidden="true">🏃</span>';
     return '<label class="bang1-athlete-row'+(checked?' is-checked':'')+'">'+
       '<input type="checkbox" data-reg="'+Number(regId)+'" data-athlete="'+esc(athlete.athleteKey)+'"'+
         (checked?' checked':'')+(disabled?' disabled':'')+
+        (lockOnConfirm?' data-lock-on-confirm="1"':'')+
         ' aria-label="รายงานตัว '+esc(athlete.name)+'">'+
       '<span class="bang1-athlete-photo">'+photo+'</span>'+
       '<span class="bang1-athlete-info"><strong>'+esc(athlete.name)+'</strong>'+
-       '<small>'+(checked?'✓ รายงานตัวแล้ว '+esc(athlete.checkedAt):
+       '<small>'+(checked?(lockOnConfirm?
+           '🔒 ยืนยันตัวนักกรีฑารอบคัดเลือกแล้ว · เปลี่ยนตัวไม่ได้':
+           '✓ รายงานตัวแล้ว '+esc(athlete.checkedAt)):
          finalReadOnly?'ผ่านเข้ารอบชิง · รอเปิดการรายงานตัวรอบชิง':
         disabled?'เต็มจำนวนแล้ว · ยกเลิกชื่อเดิมก่อน':'ยังไม่รายงานตัว')+'</small></span>'+
       '<span class="bang1-athlete-status'+(checked?' confirmed':'')+'">'+(checked?'✓':'○')+'</span>'+
@@ -257,6 +260,7 @@
   }
   function teamMarkup(team){
     const finalReadOnly=team.qualifiedFinal===true;
+    const lockOnConfirm=team.lockOnConfirm===true;
     const limit=Number(team.totalAthletes)||1;
     const checked=Number(team.checkedAthletes)||0;
     const full=checked>=limit;
@@ -267,7 +271,7 @@
       (team.lane?' · ลู่ '+Number(team.lane):'')+'</small></div>'+
       '<span>'+(finalReadOnly?'ผ่านเข้ารอบชิง':checked+' / '+limit+' คน')+'</span></header>'+
       (over?'<div class="bang1-oversubscribed">⚠️ มีการติ๊กเกินจำนวนที่กำหนด '+over+' คน กรุณาตรวจสอบ</div>':'')+
-      '<div class="bang1-athlete-list">'+team.athletes.map(a=>athleteCard(a,team.regId,full,finalReadOnly)).join('')+'</div>'+
+      '<div class="bang1-athlete-list">'+team.athletes.map(a=>athleteCard(a,team.regId,full,finalReadOnly,lockOnConfirm)).join('')+'</div>'+
       '</section>';
   }
   function renderRoster(force=false){
@@ -497,8 +501,14 @@
       const regId=Number(box.dataset.reg);
       const athleteKey=box.dataset.athlete;
       const checked=box.checked;
+      if(checked&&box.dataset.lockOnConfirm==='1'&&
+          !confirm('ยืนยันนักกรีฑารายนี้สำหรับรอบคัดเลือก และหากผ่านเข้ารอบจะใช้คนเดิมในรอบชิงชนะเลิศใช่หรือไม่? ยืนยันแล้วไม่สามารถเปลี่ยนตัวได้')){
+        box.checked=false;
+        return;
+      }
       box.disabled=true;
-      message('กำลังบันทึกการรายงานตัว...','info');
+      message(checked&&box.dataset.lockOnConfirm==='1'
+        ?'กำลังยืนยันตัวนักกรีฑาและล็อกรายชื่อ...':'กำลังบันทึกการรายงานตัว...','info');
       const succeeded=await update('live_runner_set',{regId,athleteKey,checked});
       if(!succeeded){
         box.checked=!checked;box.disabled=false;

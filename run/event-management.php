@@ -74,6 +74,12 @@ function event_schedule_data(): array {
     require_once __DIR__.'/final-qualification.php';
     $events=rows('SELECT * FROM events ORDER BY source_order,id');
     $registrations=event_registration_rows();
+    // Only confirmed preliminary competitors advance, never their backups.
+    $checkedByRegistration=[];
+    foreach(rows('SELECT registration_id,athlete_key,checked_at FROM race_athlete_checkins') as $mark){
+        $regId=(int)$mark['registration_id'];
+        $checkedByRegistration[$regId][(string)$mark['athlete_key']]=(string)$mark['checked_at'];
+    }
     // Read-only lookup: official heat results, not the old imported worksheet.
     $officialResults=rows("SELECT event_id,heat_no,ranking_json FROM event_results WHERE round_type='คัดเลือก'");
     $rankingsByFixture=[];
@@ -161,7 +167,7 @@ function event_schedule_data(): array {
                     if(is_array($legacy))$preliminaryRankings[$heat]=$legacy;
                 }
             }
-            $qualifiedFinal=bang1_qualifying_final_entries($regs,$preliminaryRankings);
+            $qualifiedFinal=bang1_qualifying_final_entries($regs,$preliminaryRankings,$checkedByRegistration);
         }
         // Hide preconfigured separate final fixtures when the event is already a direct final.
         if(!$directFinal){

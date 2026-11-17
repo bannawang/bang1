@@ -48,6 +48,8 @@ jobs:
         run: node .github/scripts/test_school_flags.js
       - name: Manager LIVE final qualification picker refresh regression
         run: node .github/scripts/test_live_qualified_picker.js
+      - name: Locked preliminary selection and immutable registration regression
+        run: node .github/scripts/test_locked_prelim_checkin.js
       - name: Manager LIVE check-in permission regression
         run: node .github/scripts/test_live_checkin_permissions.js
       - name: JavaScript syntax
