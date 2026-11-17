@@ -20,11 +20,13 @@ const pending={key:'pending-final-31',eventId:32,order:32,round:'รอบชิ
   pendingFinal:true,qualificationSavedHeats:1,qualificationRequiredHeats:2};
 assert.equal(c.isPendingFinal(pending),true,'Waiting final visible but not broadcastable');
 assert.equal(c.isQualifiedFinal(pending),false,'Pending never presented as ready');
-const heat1={key:'heat-11',eventId:11,order:11,heat:1,round:'คัดเลือก'};
-const heat2={key:'heat-12',eventId:12,order:12,heat:2,round:'คัดเลือก'};
-assert.deepEqual(Array.from(c.livePickerSorted([direct,pending,ready,prelim,heat2,heat1]),x=>x.key),
-  ['heat-11','heat-12','heat-23','final-31','pending-final-31','direct-67'],
-  'LIVE picker must follow source program order, including separate heats and reserved finals');
+const group11={key:'combined-11-12',eventId:11,eventNumberLabel:'11–12',order:11,
+  heat:0,heats:[1,2],round:'คัดเลือก'};
+const group23={key:'combined-23-24',eventId:23,eventNumberLabel:'23–24',order:23,
+  heat:0,heats:[1,2],round:'คัดเลือก'};
+assert.deepEqual(Array.from(c.livePickerSorted([direct,pending,ready,group23,group11]),x=>x.key),
+  ['combined-11-12','combined-23-24','final-31','pending-final-31','direct-67'],
+  'LIVE picker follows original program order with one selection per qualifying race');
 const scheduledLate={key:'source-100',eventId:3,order:100,round:'รอบคัดเลือก'};
 assert.deepEqual(Array.from(c.livePickerSorted([scheduledLate,ready,prelim]),x=>x.key),
   ['heat-23','final-31','source-100'],
@@ -40,4 +42,4 @@ assert(js.includes('option.disabled=isPendingFinal(f)'),'Pending fixture cannot 
 assert(js.includes('ยังไม่เปิดให้ปล่อย LIVE'),'Pending final label explains status');
 assert(css.includes('.bang1-fixture-option.is-qualified-final'),'Ready finals are visually distinct');
 assert(html.includes('live-manager.js?v=20261117-program-order3'),'Manager browser cache is invalidated');
-console.log('PASS LIVE manager chooser: official order, separate heats, ready badge, fast refresh');
+console.log('PASS LIVE manager chooser: grouped qualifying heats in official order, ready finals, fast refresh');

@@ -92,22 +92,26 @@ function live_fixture_round(int $eventId,array $registration,array $index):strin
 }
 
 /**
- * Historical LIVE selection grouped all preliminary heats into one fixture.
- * Preserve that key only for resolving already-active selections on upgrade.
+ * One LIVE selection per competition and round. This groups all
+ * preliminary heats of the same race (e.g. EventIDs 23–24) without combining
+ * the separately scheduled championship. Registered athletes retain their
+ * individual heat/lane, registration ID and existing check-in state.
  */
 function live_legacy_competition_key(array $row,string $round):string {
     return hash('sha256',json_encode([
         live_event_order_key($row),$round
     ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
 }
-/**
- * The official running order has a separate EventID for EACH preliminary
- * heat. Keep their LIVE selections separate so coaches can call each heat
- * independently in exactly the published program order. Existing runner
- * attendance remains keyed to registration ID; no DB migration is required.
- */
 function live_competition_key(array $row,string $round):string {
-    if($round!=='รอบคัดเลือก')return live_legacy_competition_key($row,$round);
+    return live_legacy_competition_key($row,$round);
+}
+/**
+ * Selection key deployed when two preliminary heats appeared separately
+ * in the LIVE picker. Accept it as an alias so an existing LIVE selection
+ * survives the change without touching the database.
+ */
+function live_split_heat_competition_key(array $row,string $round):string {
+    if($round!=='รอบคัดเลือก')return live_competition_key($row,$round);
     return hash('sha256',json_encode([
         live_event_order_key($row),$round,max(1,(int)($row['heat']??1))
     ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
@@ -560,15 +564,13 @@ function live_dataset(bool $manager=false,?string $sportFixtureKey=null):array {
         $round=$qualifiedFinal?'รอบชิง':live_fixture_round($oldEventId,$r,$roundIndex);
         $key=live_competition_key($r,$round);
         $heat=max(1,(int)($r['heat']??1));
-        // Preserve both historic per-heat keys AND the older combined key.
-        // A previously-active combined preliminary defaults to heat 1, never
-        // to a random later heat. Do not change the stored check-in records.
+        // Both formerly separate qualifying selections now map to the
+        // combined race; existing public display choice and per-runner
+        // attendance records are not modified or cleared.
         if(!$qualifiedFinal){
             $legacyToCurrent[live_group_key($r)]=$key;
             $legacyToCurrent[live_legacy_group_key($r)]=$key;
-            $combinedKey=live_legacy_competition_key($r,$round);
-            if($heat===1||!isset($legacyToCurrent[$combinedKey]))
-                $legacyToCurrent[$combinedKey]=$key;
+            $legacyToCurrent[live_split_heat_competition_key($r,$round)]=$key;
         }
         $slotKey=live_event_order_key($r).'|'.$round.'|'.$heat;
         $slot=$heatSlots[$slotKey]??null;
