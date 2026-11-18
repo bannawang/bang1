@@ -37,7 +37,7 @@ function ensurePage(){
     if(!item)return;
     // Recheck finals on open: preliminary results might have been saved
     // by another staff member while this list was already on screen.
-    if(Array.isArray(item.qualifiers)||item.pendingQualifiers){
+    if(item.round==='ชิงชนะเลิศ' && (item.pendingQualifiers || item.qualifiers?.length)){
       if(loading)return;
       loading=true;
       button.disabled=true;
