@@ -5,7 +5,7 @@ declare(strict_types=1);
  * can be ranked; never trust options or role flags from the client.
  */
 /**
- * Final choices must be exactly places 1–3 of each preliminary heat.
+ * Final choices must be exactly places 1–3 of each preliminary heat (both heats).
  * Keep their original heat/rank as metadata; final placements are new rankings.
  */
 function staff_final_qualifier_choices(array $fixture): array {

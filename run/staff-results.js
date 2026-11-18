@@ -35,7 +35,7 @@ function ensurePage(){
     const fixtureKey=button.dataset.fixture;
     let item=fixtures.find(x=>x.fixtureKey===fixtureKey);
     if(!item)return;
-    // Recheck finals on open: preliminary results might have been saved
+    // Recheck qualifying finals only: preliminary results might have been saved
     // by another staff member while this list was already on screen.
     if(item.round==='ชิงชนะเลิศ' && (item.pendingQualifiers || item.qualifiers?.length)){
       if(loading)return;
