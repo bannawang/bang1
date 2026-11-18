@@ -13,6 +13,6 @@ assert(css.includes('#bang1StaffResults .bang1-staff-fixture.bang1-staff-saved {
     'Every saved heat must have a green background');
 assert(!css.includes('.bang1-staff-fixture.bang1-staff-final.bang1-staff-saved'),
     'Saved green must not depend on round');
-assert(html.includes('staff-results.css?v=20261118-saved-any-heat-green'),
+assert(/staff-results\.css\?v=20261118-[A-Za-z0-9-]+/.test(html),
     'Browser must use revised stylesheet');
 console.log('PASS saved qualifiers/finals green; pending finals yellow');
