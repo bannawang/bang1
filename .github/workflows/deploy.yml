@@ -144,12 +144,12 @@ jobs:
           cd run
           LFTP
             if [[ -s /tmp/bang1-incremental-upload.lst ]]; then
-              echo "Uploading changed files only"
+              echo "Uploading changed files only" >&2
               while IFS= read -r file; do
                 printf 'put %s -o %s\n' "$file" "${file#run/}"
               done < /tmp/bang1-incremental-upload.lst
             else
-              echo "Performing full mirror"
+              echo "Performing full mirror" >&2
               echo 'mirror --reverse --verbose --only-newer --parallel=2 run .'
             fi
             cat <<'LFTP'
