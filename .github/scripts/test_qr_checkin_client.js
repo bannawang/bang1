@@ -93,7 +93,7 @@ assert(html.includes('role-guidance.js?v=20261117-admin-qr-access'),
   'Role menu change busts browser cache');
 assert(html.includes('qr-checkin.js?v=20261117-mobile-clean-v3'),
   'Compact QR JavaScript busts browser cache');
-assert(html.includes('qr-checkin.css?v=20261117-mobile-clean-v3'),
+assert(html.includes('qr-checkin.css?v=20261118-mobile-picker-fit'),
   'Compact QR CSS busts browser cache');
 
 const css=fs.readFileSync('run/qr-checkin.css','utf8');
