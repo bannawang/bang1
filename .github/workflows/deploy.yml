@@ -12,12 +12,13 @@ permissions:
 
 concurrency:
   group: bang1-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
     if: ${{ vars.ENABLE_DEPLOY == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     environment: production
     env:
       FTPS_HOST: ${{ secrets.FTPS_HOST }}
@@ -34,6 +35,8 @@ jobs:
       PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Check mandatory configuration
         shell: bash
         run: |
@@ -80,23 +83,77 @@ jobs:
             test -s "$icon"
             test "$(file -b --mime-type "$icon")" = "image/png"
           done
+      # For a normal source edit, only changed top-level run/ files need upload.
+      # Nested changes, deletions, icons, manual runs and unknown diffs retain the full mirror.
+      - name: Select incremental upload files
+        shell: bash
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          rm -f /tmp/bang1-incremental-upload.lst
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$BEFORE_SHA" =~ ^[0-9a-f]{40}$ ]] &&
+             git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+            git diff --name-status --no-renames "$BEFORE_SHA" HEAD -- run/ > /tmp/bang1-changed.tsv
+            python3 - <<'PY'
+          from pathlib import Path
+          import re
+          changed = Path('/tmp/bang1-changed.tsv').read_text().splitlines()
+          fast_files = []
+          safe = bool(changed) and len(changed) <= 15
+          for row in changed:
+              parts = row.split('\t')
+              if len(parts) != 2:
+                  safe = False
+                  break
+              status, path = parts
+              # Generate PWA raster assets and handle nested/removed files with full mirror.
+              if (status not in ('M','A') or
+                  not re.fullmatch(r'run/[A-Za-z0-9._-]+', path) or
+                  path in ('run/icon.svg','run/icon-maskable.svg')):
+                  safe = False
+                  break
+              fast_files.append(path)
+          if safe:
+              Path('/tmp/bang1-incremental-upload.lst').write_text(
+                  '\n'.join(fast_files) + '\n')
+              print(f'Incremental FTPS upload: {len(fast_files)} changed file(s)')
+          else:
+              print('Using full FTPS mirror for nontrivial or unknown changes')
+          PY
+          else
+            echo "Using full FTPS mirror (manual run or unavailable Git diff)"
+          fi
       - name: Secure upload to restricted FTP root /bang1/
         shell: bash
         run: |
-          lftp --env-password -u "$FTPS_USER" -p "$FTPS_PORT" "$FTPS_HOST" <<'LFTP'
+          set -euo pipefail
+          {
+            cat <<'LFTP'
+          set net:timeout 20
+          set net:max-retries 2
+          set net:reconnect-interval-base 3
           set ftp:ssl-force yes
           set ftp:ssl-protect-data yes
           set ssl:verify-certificate yes
           set cmd:fail-exit yes
-          # On this DirectAdmin host, lftp mkdir -p exits 550 when the folder already exists.
-          # Allow the initial mkdir to fail, but require cd to succeed before uploading.
+          # Existing DirectAdmin folder may return 550 on mkdir; cd must succeed.
           set cmd:fail-exit no
           mkdir run
           set cmd:fail-exit yes
           cd run
-          mirror --reverse --verbose --only-newer --parallel=2 run .
-          # Explicitly upload security rules: this lftp release has no --all option
-          # and dotfiles can be skipped by the standard mirror.
+          LFTP
+            if [[ -s /tmp/bang1-incremental-upload.lst ]]; then
+              echo "Uploading changed files only"
+              while IFS= read -r file; do
+                printf 'put %s -o %s\n' "$file" "${file#run/}"
+              done < /tmp/bang1-incremental-upload.lst
+            else
+              echo "Performing full mirror"
+              echo 'mirror --reverse --verbose --only-newer --parallel=2 run .'
+            fi
+            cat <<'LFTP'
+          # Keep security rules and private configuration on the server.
           put run/uploads/school-logos/.htaccess -o uploads/school-logos/.htaccess
           cd ..
           set cmd:fail-exit no
@@ -107,6 +164,10 @@ jobs:
           put .private/.htaccess -o .htaccess
           bye
           LFTP
+          } > /tmp/bang1-upload.lftp
+          # Prevent FTPS stalls from blocking production deploys indefinitely.
+          timeout --signal=TERM --kill-after=10s 300s \
+            lftp --env-password -u "$FTPS_USER" -p "$FTPS_PORT" "$FTPS_HOST" < /tmp/bang1-upload.lftp
       - name: Apply idempotent DB schema
         shell: bash
         run: |
