@@ -11,7 +11,7 @@ header('Cache-Control: no-store, private');
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#06162c">
   <title>จอรายงานตัว LIVE | กรีฑากลุ่มโรงเรียนบางละมุง 1</title>
-  <link rel="stylesheet" href="./live.css?v=20261110-crest-order21">
+  <link rel="stylesheet" href="./live.css?v=20261118-heat-lane-label">
   <link rel="stylesheet" href="../school-branding.css?v=20261110-crest-order21">
 </head>
 <body>
@@ -161,6 +161,6 @@ header('Cache-Control: no-store, private');
       </footer>
     </section>
   </main>
-  <script defer src="./live.js?v=20261117-qualifying-final-label"></script>
+  <script defer src="./live.js?v=20261118-heat-lane-label"></script>
 </body>
 </html>

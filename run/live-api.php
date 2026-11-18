@@ -162,6 +162,18 @@ function live_add_heat(array &$heats,int $heat):void {
     }
 }
 
+/** Preserve an individual school's heat/lane assignments without inventing missing lanes. */
+function live_add_position(array &$positions,int $heat,?int $lane):void {
+    if($heat<1||$heat>99)return;
+    $lane=($lane!==null && $lane>=1 && $lane<=99)?$lane:null;
+    foreach($positions as $position){
+        if((int)$position['heat']===$heat && ($position['lane']??null)===$lane)return;
+    }
+    $positions[]=['heat'=>$heat,'lane'=>$lane];
+    usort($positions,static fn($a,$b)=>($a['heat']<=>$b['heat'])
+        ?:(($a['lane']??9999)<=>($b['lane']??9999)));
+}
+
 /** Ten fixed presentation columns, in the reference screen's order. */
 function live_school_order():array {
     return [
@@ -672,7 +684,7 @@ function live_dataset(bool $manager=false,?string $sportFixtureKey=null):array {
     foreach($schoolColumns as $school){
         $columns[]=[
             'name'=>$school['name'],'key'=>$school['key'],'logo'=>$school['logo']??null,
-            'registered'=>false,'heats'=>[],'teamCount'=>0,'totalAthletes'=>0,'checkedAthletes'=>0,
+            'registered'=>false,'heats'=>[],'positions'=>[],'teamCount'=>0,'totalAthletes'=>0,'checkedAthletes'=>0,
             'athletes'=>[]
         ];
     }
@@ -690,6 +702,7 @@ function live_dataset(bool $manager=false,?string $sportFixtureKey=null):array {
         // school must remain green even if none of its athletes has arrived.
         $columns[$columnIndex]['registered']=true;
         live_add_heat($columns[$columnIndex]['heats'],(int)$team['heat']);
+        live_add_position($columns[$columnIndex]['positions'],(int)$team['heat'],$team['lane']);
         $columns[$columnIndex]['teamCount']++;
         $columns[$columnIndex]['totalAthletes']+=(int)$team['totalAthletes'];
         $columns[$columnIndex]['checkedAthletes']+=(int)$team['checkedAthletes'];

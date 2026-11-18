@@ -53,6 +53,33 @@
       flag.replaceWith(placeholder);
     }else flag.remove();
   },true);
+  function schoolPositions(school){
+    const positions=Array.isArray(school.positions)?school.positions:[];
+    const output=[],seen=new Set();
+    for(const position of positions){
+      const heat=Number(position?.heat),lane=Number(position?.lane);
+      if(!Number.isInteger(heat)||heat<1||heat>99)continue;
+      const validLane=position?.lane!=null&&Number.isInteger(lane)&&lane>0&&lane<=99;
+      const key=heat+'|'+(validLane?lane:'');
+      if(seen.has(key))continue;
+      seen.add(key);
+      output.push({heat,lane:validLane?lane:null});
+    }
+    // Older cached payloads may contain heats but not the lane mapping.
+    // Show the known heat only rather than guessing a lane.
+    if(!output.length){
+      for(const h of Array.isArray(school.heats)?school.heats:[]){
+        const heat=Number(h);
+        if(Number.isInteger(heat)&&heat>=1&&heat<=99&&!seen.has(heat+'|')){
+          seen.add(heat+'|');output.push({heat,lane:null});
+        }
+      }
+    }
+    return output.sort((a,b)=>a.heat-b.heat||(a.lane??9999)-(b.lane??9999));
+  }
+  function schoolPositionLabel(position){
+    return 'ฮีท '+position.heat+(position.lane!==null?' · ลู่ '+position.lane:'');
+  }
   function schoolCell(school,sport=false,qualifiedFinal=false){
     const athletes=Array.isArray(school.athletes)?school.athletes:[];
     // This is the server's REGISTERED entry flag, not the athlete check-in
@@ -62,12 +89,14 @@
     const layout=count<=1?'count-1':count===2?'count-2':
       count<=4?'count-4':count<=6?'count-6':'count-many';
     const rows=Math.ceil(Math.max(1,count)/2);
-    const heats=[...new Set((Array.isArray(school.heats)?school.heats:[])
-      .map(Number).filter(h=>Number.isInteger(h)&&h>0&&h<=99))].sort((a,b)=>a-b);
-    const badges=entered&&heats.length
-      ?'<span class="school-heat-badges" aria-label="ฮีทของโรงเรียน">'+
-        heats.map(h=>'<span class="school-heat-badge '+(h===1?'heat-one':h===2?'heat-two':'heat-other')+
-          '" aria-label="ฮีทที่ '+h+'" title="ฮีทที่ '+h+'">'+h+'</span>').join('')+
+    const positions=schoolPositions(school);
+    const badges=entered&&positions.length
+      ?'<span class="school-heat-badges" aria-label="ฮีทและลู่ของโรงเรียน">'+
+        positions.map(position=>{
+          const label=schoolPositionLabel(position);
+          return '<span class="school-heat-badge '+(position.heat===1?'heat-one':position.heat===2?'heat-two':'heat-other')+
+            '" aria-label="'+esc(label)+'" title="'+esc(label)+'">'+esc(label)+'</span>';
+        }).join('')+
         '</span>':'';
     const schoolName=esc(String(school.name||'').replace(/^โรงเรียน/u,''));
     // The school title is ALWAYS text-only. A large logo belongs in the
@@ -236,8 +265,7 @@
       ?'<img loading="eager" decoding="async" src="'+esc(person.photo)+'" alt="'+esc(person.name)+'" referrerpolicy="no-referrer">'
       :'<div class="sport-image-placeholder" role="img" aria-label="ไม่มีรูปนักกรีฑา">ไม่มีรูป</div>').join('')
       :'<div class="sport-image-placeholder">'+(team?'ยังไม่มีรูป':'—')+'</div>';
-    const heat=(Array.isArray(school.heats)?school.heats:[]).map(Number).filter(n=>n>0&&n<100);
-    const badge=heat.length?'ฮีท '+[...new Set(heat)].join(', '):'';
+    const badge=schoolPositions(school).map(schoolPositionLabel).join(' / ');
     const subtitle=!team?'ไม่ได้ลงรายการ':
       (people.length>1?people.length+' นักกรีฑา':people[0]?.name||'รอข้อมูลนักกรีฑา');
     const portraits=people.filter(person=>person.photo);
@@ -391,9 +419,9 @@
       people.length===1?people[0].name:
       people.length>1?people.length+' นักกรีฑาที่ลงทะเบียนในปีปัจจุบัน':
       'ยังไม่มีรูปนักกรีฑาที่ลงทะเบียน';
-    const heat=Array.isArray(hero?.heats)?hero.heats.filter(n=>Number(n)>0):[];
+    const heroPositions=hero?schoolPositions(hero).map(schoolPositionLabel):[];
     el('sportHeroHeat').textContent=champion?'🏆 '+champion.season:
-      heat.length?'HEAT '+heat.join('–'):'ATHLETICS';
+      heroPositions.length?heroPositions.join(' / '):'ATHLETICS';
     const rivalGrid=el('sportRivalGrid');
     const desktop=sportGridLayout(others.length);
     const mobile=sportGridLayout(others.length,true);

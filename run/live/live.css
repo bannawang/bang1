@@ -253,8 +253,8 @@ body{background:#06162c}
   .ticker-track{animation:none;will-change:auto}
 }
 
-/* Single-competition board: team heat numbers appear BELOW each school name.
-   Red for heat 1, blue for heat 2, distinct fallback for additional heats. */
+/* Each registered school displays its assigned heat AND lane beneath its name.
+   Red marks heat 1, blue heat 2; never show a guessed lane. */
 .school-name{
   flex-direction:column;
   gap:clamp(2px,.3vh,5px);
@@ -272,14 +272,15 @@ body{background:#06162c}
 }
 .school-heat-badge{
   display:inline-flex;align-items:center;justify-content:center;
-  height:clamp(17px,2.45vh,28px);
-  min-width:clamp(17px,2.45vh,28px);
-  border-radius:50%;aspect-ratio:1/1;
-  color:#fff!important;line-height:1;
-  font-size:clamp(.66rem,1.1vw,1.1rem);
-  font-weight:950;
+  min-height:clamp(18px,2.55vh,29px);
+  max-width:100%;padding:2px clamp(4px,.4vw,8px);
+  border-radius:999px;
+  color:#fff!important;line-height:1.1;text-align:center;
+  font-size:clamp(.55rem,.85vw,.93rem);
+  font-weight:900;
   border:1.5px solid #ffffffdd;
   box-shadow:0 2px 7px #001e3580;
+  white-space:normal;overflow-wrap:anywhere;
 }
 .school-heat-badge.heat-one{background:#e11d48}
 .school-heat-badge.heat-two{background:#1768e6}
@@ -288,11 +289,11 @@ body{background:#06162c}
   height:clamp(56px,8.4vh,92px);
 }
 @media(max-width:980px){
- .school-heat-badge{height:clamp(15px,2.25vh,22px);min-width:clamp(15px,2.25vh,22px);font-size:clamp(.62rem,1.15vw,.78rem)}
+ .school-heat-badge{min-height:18px;font-size:clamp(.46rem,.8vw,.74rem);padding:2px 3px}
 }
 @media(max-width:600px){
  .school-name,.school-column.is-entered .school-name{height:clamp(53px,8.4vh,76px)}
- .school-heat-badge{height:15px;min-width:15px;font-size:.65rem}
+ .school-heat-badge{min-height:16px;font-size:clamp(.41rem,1.25vw,.6rem);padding:2px}
 }
 
 /* Sport presentation: no page scroll, same ten-school matrix, different mode. */

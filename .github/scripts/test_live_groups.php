@@ -205,6 +205,19 @@ check(live_event_number_label([11])==='11','Single heat must retain single event
 $heats=[];
 live_add_heat($heats,2);live_add_heat($heats,1);live_add_heat($heats,2);
 check($heats===[1,2],'School heat badges must be unique and ordered');
+$schoolPositions=[];
+live_add_position($schoolPositions,2,5);
+live_add_position($schoolPositions,1,3);
+live_add_position($schoolPositions,2,5);
+live_add_position($schoolPositions,1,null);
+live_add_position($schoolPositions,0,8);
+check($schoolPositions===[
+  ['heat'=>1,'lane'=>3],['heat'=>1,'lane'=>null],['heat'=>2,'lane'=>5]
+], 'Public LIVE must retain real heat/lane pairings, sort them and avoid duplicates');
+$missingLane=[];
+live_add_position($missingLane,1,0);
+check($missingLane===[['heat'=>1,'lane'=>null]],
+  'An unassigned lane must remain unknown, never be shown as a fabricated number');
 // Reproduce EventIDs 23 and 24 of the same race and ensure one LIVE key.
 $h23=['event_name'=>'วิ่ง 60 เมตร (6 ปี ชาย)',
     'category'=>'วิ่งเดี่ยว','level'=>'อนุบาล','heat'=>1];
