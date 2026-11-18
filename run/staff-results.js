@@ -100,6 +100,7 @@ function drawList(){
   const list=$('#bang1StaffResultList');
   list.innerHTML=visible.map(f=>'<button type="button" class="bang1-staff-fixture'+
     (f.round==='ชิงชนะเลิศ'?' bang1-staff-final':'')+
+    (f.isSaved?' bang1-staff-saved':'')+
     '" data-fixture="'+esc(f.fixtureKey)+'">'+
     '<span class="bang1-fixture-main"><strong>รายการที่ '+esc(f.fixtureNumber)+' '+esc(f.eventName)+'</strong>'+
     '<small>'+esc(f.round)+' • ฮีท '+esc(f.heat)+' • '+esc(f.registeredSchools)+' โรงเรียน</small></span>'+

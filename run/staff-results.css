@@ -9,26 +9,39 @@
 .bang1-staff-result-list {display:flex;flex-direction:column;gap:8px}
 .bang1-staff-fixture {display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;min-height:67px;
   text-align:left;border:1px solid #334155;background:#0f172a;border-radius:12px;color:#e5e7eb;padding:12px;cursor:pointer}
-/* Final-round fixtures are lightly green to distinguish them from qualifiers. */
+/* A final stays yellow until its own heat result is saved, then turns green. */
 #bang1StaffResults .bang1-staff-fixture.bang1-staff-final {
+  background:#fef3c7;
+  border-color:#facc15;
+  color:#713f12;
+}
+#bang1StaffResults .bang1-staff-fixture.bang1-staff-final .bang1-fixture-main small,
+#bang1StaffResults .bang1-staff-fixture.bang1-staff-final .bang1-fixture-right>span:last-child {
+  color:#92400e;
+}
+#bang1StaffResults .bang1-staff-fixture.bang1-staff-final:active {
+  background:#fde68a;
+}
+#bang1StaffResults .bang1-staff-fixture.bang1-staff-final .bang1-fixture-state.pending {
+  background:#92400e;
+  color:#fffbeb;
+}
+/* Green is reserved for completed final-round results. */
+#bang1StaffResults .bang1-staff-fixture.bang1-staff-final.bang1-staff-saved {
   background:#c9f7df;
   border-color:#4ade80;
   color:#064e3b;
 }
-#bang1StaffResults .bang1-staff-fixture.bang1-staff-final .bang1-fixture-main small,
-#bang1StaffResults .bang1-staff-fixture.bang1-staff-final .bang1-fixture-right>span:last-child {
+#bang1StaffResults .bang1-staff-fixture.bang1-staff-final.bang1-staff-saved .bang1-fixture-main small,
+#bang1StaffResults .bang1-staff-fixture.bang1-staff-final.bang1-staff-saved .bang1-fixture-right>span:last-child {
   color:#166534;
 }
-#bang1StaffResults .bang1-staff-fixture.bang1-staff-final:active {
+#bang1StaffResults .bang1-staff-fixture.bang1-staff-final.bang1-staff-saved:active {
   background:#a7efcb;
 }
-#bang1StaffResults .bang1-staff-fixture.bang1-staff-final .bang1-fixture-state.saved {
+#bang1StaffResults .bang1-staff-fixture.bang1-staff-final.bang1-staff-saved .bang1-fixture-state.saved {
   background:#166534;
   color:#f0fdf4;
-}
-#bang1StaffResults .bang1-staff-fixture.bang1-staff-final .bang1-fixture-state.pending {
-  background:#fef3c7;
-  color:#78350f;
 }
 .bang1-staff-fixture:focus-visible {outline:2px solid #22d3ee;outline-offset:2px}
 .bang1-staff-fixture:active {background:#172b42}
