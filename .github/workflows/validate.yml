@@ -58,6 +58,8 @@ jobs:
         run: node .github/scripts/test_pwa_install.js
       - name: Manager LIVE final qualification picker refresh regression
         run: node .github/scripts/test_live_qualified_picker.js
+      - name: Mobile PWA competition picker fitting regression
+        run: node .github/scripts/test_mobile_picker_fit.js
       - name: Locked preliminary selection and immutable registration regression
         run: node .github/scripts/test_locked_prelim_checkin.js
       - name: Manager LIVE check-in permission regression
