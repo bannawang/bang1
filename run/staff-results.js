@@ -29,10 +29,31 @@ function ensurePage(){
   app.querySelectorAll('[data-result-tab]').forEach(button=>{
     button.addEventListener('click',()=>{tab=button.dataset.resultTab;drawList()});
   });
-  $('#bang1StaffResultList',app).addEventListener('click',event=>{
+  $('#bang1StaffResultList',app).addEventListener('click',async event=>{
     const button=event.target.closest('[data-fixture]');
     if(!button)return;
-    const item=fixtures.find(x=>x.fixtureKey===button.dataset.fixture);
+    const fixtureKey=button.dataset.fixture;
+    let item=fixtures.find(x=>x.fixtureKey===fixtureKey);
+    if(!item)return;
+    // Recheck finals on open: preliminary results might have been saved
+    // by another staff member while this list was already on screen.
+    if(Array.isArray(item.qualifiers)||item.pendingQualifiers){
+      if(loading)return;
+      loading=true;
+      button.disabled=true;
+      try{
+        const result=await request('staff_results_list');
+        fixtures=Array.isArray(result.data)?result.data:[];
+        item=fixtures.find(x=>x.fixtureKey===fixtureKey);
+        drawList();
+      }catch(error){
+        status(error.message||'ไม่สามารถตรวจสอบรายชื่อผู้ผ่านเข้ารอบ',true);
+        return;
+      }finally{
+        loading=false;
+        button.disabled=false;
+      }
+    }
     if(item)openDialog(item);
   });
 
@@ -119,11 +140,11 @@ function openDialog(item){
     ' • '+item.registeredSchools+' โรงเรียนสมัคร';
   const hint=$('#bang1ScoreHint');
   hint.textContent=item.pendingQualifiers
-    ?'รอบชิงรอผลอันดับ 1–3 จากทั้งสองฮีทก่อน จึงจะเปิดรายชื่อผู้ผ่านเข้ารอบ'
+    ?'รอบชิงรอการบันทึกอันดับ 1–3 ของทั้งสองฮีทให้ครบก่อน จึงจะเปิดให้เลือกผู้ผ่านเข้ารอบ'
     :item.pendingDraw
       ?'ยังไม่มีการสุ่มฮีทและลู่สำหรับรายการนี้ กรุณาให้ Admin จัดฮีทก่อน'
-      :Array.isArray(item.finalists)&&item.finalists.length
-        ?'รายชื่อผู้ผ่านเข้ารอบชิง: '+item.finalists.map(x=>'ลู่ '+x.Lane+' '+x.SchoolName+' ('+x.RunnerName+')').join(' | ')
+      :Array.isArray(item.qualifiers)&&item.qualifiers.length===6
+        ?'รอบชิง: ผ่านเข้ารอบ 6 โรงเรียน (อันดับ 1–3 จากฮีท 1 และฮีท 2) · จัดอันดับรอบชิงใหม่ได้โดยไม่เลือกโรงเรียนซ้ำ'
         :'เลือกโรงเรียนตามอันดับ โดยโรงเรียนที่เลือกแล้วจะไม่สามารถเลือกซ้ำในอันดับอื่นได้';
   const fields=$('#bang1ScoreFields');
   fields.replaceChildren();
@@ -137,7 +158,7 @@ function openDialog(item){
     select.disabled=item.pendingDraw||!item.schools.length;
     const blank=new Option('-- เลือกโรงเรียน --','');
     select.add(blank);
-    for(const school of item.schools)select.add(new Option(school,school));
+    for(const school of item.schools)select.add(new Option(schoolChoiceLabel(school),school));
     select.value=item.ranks?.[String(rank)]||'';
     select.addEventListener('change',updateOptions);
     row.append(name,select);
@@ -158,6 +179,12 @@ function closeDialog(){
   document.body.classList.remove('bang1-score-modal-open');
   previousFocus?.focus?.();
 }
+function schoolChoiceLabel(school){
+  const qualifier=selected?.qualifiers?.find(q=>q.school===school);
+  return qualifier
+    ?school+' (คัดเลือกฮีท '+qualifier.heat+' อันดับ '+qualifier.rank+')'
+    :school;
+}
 function updateOptions(){
   const selects=[...document.querySelectorAll('#bang1ScoreFields select')];
   const chosen=new Set(selects.map(select=>select.value).filter(Boolean));
@@ -168,7 +195,7 @@ function updateOptions(){
     select.replaceChildren(new Option('-- เลือกโรงเรียน --',''));
     for(const school of selected?.schools||[]){
       if(!chosen.has(school)||school===current){
-        select.add(new Option(school,school));
+        select.add(new Option(schoolChoiceLabel(school),school));
       }
     }
     select.value=current;

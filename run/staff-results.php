@@ -4,6 +4,32 @@ declare(strict_types=1);
  * Staff scoring. Only schools registered for the specific competition/heat
  * can be ranked; never trust options or role flags from the client.
  */
+/**
+ * Final choices must be exactly places 1–3 of each preliminary heat.
+ * Keep their original heat/rank as metadata; final placements are new rankings.
+ */
+function staff_final_qualifier_choices(array $fixture): array {
+    if(trim((string)($fixture['HeatPlan']??''))!=='ชิง'
+        ||!empty($fixture['QualificationPending']))return [];
+    $entries=$fixture['entries']??[];
+    if(!is_array($entries)||count($entries)!==6)return [];
+    $choices=[];$seenSchools=[];$seenSlots=[];
+    foreach($entries as $entry){
+        $school=trim((string)($entry['SchoolName']??''));
+        $heat=(int)($entry['QualifyingHeat']??0);
+        $rank=(int)($entry['QualifyingRank']??0);
+        $slot=$heat.'|'.$rank;
+        if($school===''||!in_array($heat,[1,2],true)
+            ||$rank<1||$rank>3
+            ||isset($seenSchools[$school])||isset($seenSlots[$slot]))return [];
+        $seenSchools[$school]=true;
+        $seenSlots[$slot]=true;
+        $choices[]=['school'=>$school,'heat'=>$heat,'rank'=>$rank];
+    }
+    // Six unique heat/rank slots guarantee three qualifiers from each heat.
+    usort($choices,static fn($a,$b)=>($a['heat']<=>$b['heat'])?:($a['rank']<=>$b['rank']));
+    return $choices;
+}
 function staff_result_fixture_rows(): array {
     $fixtures=event_schedule_data();
     $allRegs=event_registration_rows();
@@ -33,6 +59,9 @@ function staff_result_fixture_rows(): array {
         $heatCount=count(event_heat_sizes(count($allSchools)));
         $requiresDraw=$heatCount>1 && ($round==='คัดเลือก'
             || ((int)($fixture['SchoolCount']??0)<=8));
+        $qualifiedFinal=$round==='ชิงชนะเลิศ'
+            &&trim((string)($fixture['HeatPlan']??''))==='ชิง';
+        $qualifiers=$qualifiedFinal?staff_final_qualifier_choices($fixture):[];
         if($requiresDraw){
             $allowed=[];
             foreach($relevant as $reg){
@@ -45,19 +74,14 @@ function staff_result_fixture_rows(): array {
         } else {
             // The final accepts ONLY verified top-three finishers of each
             // preliminary heat; other enrolled schools are not eligible.
-            if($round==='ชิงชนะเลิศ' && trim((string)($fixture['HeatPlan']??''))==='ชิง'){
-                $schoolSet=[];
-                foreach($fixture['entries']??[] as $qualifier){
-                    $name=trim((string)($qualifier['SchoolName']??''));
-                    if($name!=='')$schoolSet[$name]=true;
-                }
-                $schools=array_keys($schoolSet);
-                sort($schools,SORT_NATURAL);
+            if($qualifiedFinal){
+                $schools=array_column($qualifiers,'school');
             }else{
                 $schools=$allSchools;
             }
         }
-        $pendingQualifiers=(bool)($fixture['QualificationPending']??false);
+        $pendingQualifiers=(bool)($fixture['QualificationPending']??false)
+            ||($qualifiedFinal&&count($qualifiers)!==6);
         $saved=$savedByKey[$key]??null;
         $ranks=[];
         if($saved){
@@ -89,12 +113,13 @@ function staff_result_fixture_rows(): array {
             'gender'=>(string)($fixture['Gender']??''),
             'round'=>$round,'heat'=>$heat,
             'fixtureKey'=>$key,'schools'=>$schools,
+            'qualifiers'=>$qualifiers,
             // Count only this heat's eligible schools, never the combined event.
             'registeredSchools'=>count($schools),
             'isSaved'=>$isSaved,'ranks'=>$cleanRanks,
             'pendingDraw'=>($requiresDraw && !$schools)||$pendingQualifiers,
             'pendingQualifiers'=>$pendingQualifiers,
-            'finalists'=>$pendingQualifiers?[]:($round==='ชิงชนะเลิศ'&&trim((string)($fixture['HeatPlan']??''))==='ชิง'?($fixture['entries']??[]):[]),
+            'finalists'=>$pendingQualifiers?[]:($qualifiedFinal?($fixture['entries']??[]):[]),
             'updatedAt'=>$saved['updated_at']??null,
             'updatedBy'=>$saved['staff_name']??null,
         ];

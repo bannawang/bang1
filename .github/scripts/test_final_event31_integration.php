@@ -27,10 +27,17 @@ function rows(string $sql,array $params=[]):array{
     if(str_contains($sql,'FROM race_athlete_checkins'))return $fixtureCheckins;
     if(str_contains($sql,'FROM events'))return $fixtureEvents;
     if(str_contains($sql,'FROM registrations'))return $fixtureRegs;
-    if(str_contains($sql,'FROM event_results'))return $fixtureResults;
+    if(str_contains($sql,'FROM event_results')){
+        if(str_contains($sql,"WHERE round_type='คัดเลือก'"))return $fixtureResults;
+        return array_map(static fn($row)=>array_merge([
+            'round_type'=>'คัดเลือก','staff_name'=>'Test Staff',
+            'updated_at'=>'2026-11-18 17:00:00'
+        ],$row),$fixtureResults);
+    }
     throw new RuntimeException('Unexpected query: '.$sql);
 }
 require dirname(__DIR__,2).'/run/event-management.php';
+require dirname(__DIR__,2).'/run/staff-results.php';
 function expect_final(bool $condition,string $msg):void{
     if(!$condition)throw new RuntimeException($msg);
 }
@@ -47,6 +54,20 @@ expect_final(count(array_filter($final['entries'],fn($e)=>($e['ConfirmedAthletes
     'Final must inherit only prelim-confirmed athletes');
 expect_final(array_column($final['entries'],'Lane')===[2,3,4,5,6,7],'Wrong final lane allocation');
 expect_final(($final['QualificationPending']??null)===false,'Ready final still marked waiting');
+$staffFixtures=staff_result_fixture_rows();
+$staffFinals=array_values(array_filter($staffFixtures,
+    static fn($x)=>$x['eventId']===31&&$x['round']==='ชิงชนะเลิศ'));
+expect_final(count($staffFinals)===1,'Staff final fixture 31 missing');
+$staffFinal=$staffFinals[0];
+$expectedOrder=['โรงเรียน H1-1','โรงเรียน H1-2','โรงเรียน H1-3',
+    'โรงเรียน H2-1','โรงเรียน H2-2','โรงเรียน H2-3'];
+expect_final($staffFinal['schools']===$expectedOrder,
+    'Staff final must show only the first three schools of each heat, in qualification order');
+expect_final($staffFinal['registeredSchools']===6 && !$staffFinal['pendingQualifiers'],
+    'Completed qualifiers must make exactly six candidates available to Staff');
+expect_final(array_map(static fn($q)=>[$q['heat'],$q['rank']],$staffFinal['qualifiers'])
+    ===[[1,1],[1,2],[1,3],[2,1],[2,2],[2,3]],
+    'Each final dropdown option must retain its qualifying heat/rank');
 $fixtureRegs[]=['id'=>999,'event_id'=>23,'event_name'=>'วิ่ง 60 เมตร (6 ปี ชาย)',
     'category'=>'วิ่งเดี่ยว','level'=>'อนุบาล','school_name'=>'โรงเรียนเข้ามาใหม่',
     'runner_ids'=>'999','runner_names'=>'นักกรีฑารอจัดฮีท','photos'=>'',
@@ -60,6 +81,13 @@ $fixtureResults=array_slice($fixtureResults,0,1);
 $pending=fixture31();
 expect_final($pending['CompetitionRound']==='รอผลการแข่งขันรอบคัดเลือก','Partial results must stay pending');
 expect_final(($pending['QualificationSavedHeats']??0)===1,'Partial results should show one saved heat');
+$pendingStaffFinal=array_values(array_filter(staff_result_fixture_rows(),
+    static fn($x)=>$x['eventId']===31));
+expect_final(count($pendingStaffFinal)===1
+    &&$pendingStaffFinal[0]['pendingQualifiers']
+    &&$pendingStaffFinal[0]['schools']===[]
+    &&$pendingStaffFinal[0]['qualifiers']===[],
+    'Staff must not show semifinal or unqualified schools before both heats finish');
 $fixtureResults=[];
 $fixtureEvents[0]['ranking_json']=json_encode(['1'=>'โรงเรียน H1-1','2'=>'โรงเรียน H1-2','3'=>'โรงเรียน H1-3'],JSON_UNESCAPED_UNICODE);
 $fixtureEvents[1]['ranking_json']=json_encode(['1'=>'โรงเรียน H2-1','2'=>'โรงเรียน H2-2','3'=>'โรงเรียน H2-3'],JSON_UNESCAPED_UNICODE);
