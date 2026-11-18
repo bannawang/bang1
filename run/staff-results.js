@@ -101,7 +101,7 @@ function drawList(){
   list.innerHTML=visible.map(f=>'<button type="button" class="bang1-staff-fixture'+
     (f.round==='ชิงชนะเลิศ'?' bang1-staff-final':'')+
     '" data-fixture="'+esc(f.fixtureKey)+'">'+
-    '<span class="bang1-fixture-main"><strong>'+esc(f.eventName)+'</strong>'+
+    '<span class="bang1-fixture-main"><strong>รายการที่ '+esc(f.fixtureNumber)+' '+esc(f.eventName)+'</strong>'+
     '<small>'+esc(f.round)+' • ฮีท '+esc(f.heat)+' • '+esc(f.registeredSchools)+' โรงเรียน</small></span>'+
     '<span class="bang1-fixture-right">'+
     '<span class="bang1-fixture-state '+(f.isSaved?'saved':'pending')+'">'+
@@ -113,7 +113,7 @@ function openDialog(item){
   selected=item;
   previousFocus=document.activeElement;
   const modal=$('#bang1StaffScoreBackdrop');
-  $('#bang1StaffScoreTitle').textContent=item.eventName;
+  $('#bang1StaffScoreTitle').textContent='รายการที่ '+item.fixtureNumber+' '+item.eventName;
   $('#bang1StaffScoreSubtitle').textContent=item.round+' • ฮีท '+item.heat+
     ' • '+item.registeredSchools+' โรงเรียนสมัคร';
   const hint=$('#bang1ScoreHint');

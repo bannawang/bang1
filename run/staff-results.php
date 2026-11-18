@@ -82,13 +82,15 @@ function staff_result_fixture_rows(): array {
         }
         $isSaved=count($cleanRanks)>0;
         $output[]=[
+            'fixtureNumber'=>count($output)+1,
             'eventId'=>$id,'eventName'=>(string)$fixture['EventName'],
             'category'=>(string)($fixture['Category']??''),
             'level'=>(string)($fixture['Level']??''),
             'gender'=>(string)($fixture['Gender']??''),
             'round'=>$round,'heat'=>$heat,
             'fixtureKey'=>$key,'schools'=>$schools,
-            'registeredSchools'=>count($allSchools),
+            // Count only this heat's eligible schools, never the combined event.
+            'registeredSchools'=>count($schools),
             'isSaved'=>$isSaved,'ranks'=>$cleanRanks,
             'pendingDraw'=>($requiresDraw && !$schools)||$pendingQualifiers,
             'pendingQualifiers'=>$pendingQualifiers,
