@@ -37,7 +37,7 @@ const state={esc};
 vm.createContext(state);
 const functionsStart=js.indexOf('  function athleteCard(person,sport=false){');
 const errorHandler=js.indexOf('  document.addEventListener(',functionsStart);
-const schoolStart=js.indexOf('  function schoolCell(school,sport=false,qualifiedFinal=false){');
+const schoolStart=js.indexOf('  function schoolPositions(school){');
 const schoolEnd=js.indexOf('  function paintSchools(',schoolStart);
 assert(functionsStart>=0&&errorHandler>functionsStart&&schoolStart>0&&schoolEnd>schoolStart,
   'School and flag renderers must be discoverable');
