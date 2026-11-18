@@ -26,20 +26,20 @@
   background:#92400e;
   color:#fffbeb;
 }
-/* Green is reserved for completed final-round results. */
-#bang1StaffResults .bang1-staff-fixture.bang1-staff-final.bang1-staff-saved {
+/* All saved heat results are green, including qualifying heats; finals pending remain yellow. */
+#bang1StaffResults .bang1-staff-fixture.bang1-staff-saved {
   background:#c9f7df;
   border-color:#4ade80;
   color:#064e3b;
 }
-#bang1StaffResults .bang1-staff-fixture.bang1-staff-final.bang1-staff-saved .bang1-fixture-main small,
-#bang1StaffResults .bang1-staff-fixture.bang1-staff-final.bang1-staff-saved .bang1-fixture-right>span:last-child {
+#bang1StaffResults .bang1-staff-fixture.bang1-staff-saved .bang1-fixture-main small,
+#bang1StaffResults .bang1-staff-fixture.bang1-staff-saved .bang1-fixture-right>span:last-child {
   color:#166534;
 }
-#bang1StaffResults .bang1-staff-fixture.bang1-staff-final.bang1-staff-saved:active {
+#bang1StaffResults .bang1-staff-fixture.bang1-staff-saved:active {
   background:#a7efcb;
 }
-#bang1StaffResults .bang1-staff-fixture.bang1-staff-final.bang1-staff-saved .bang1-fixture-state.saved {
+#bang1StaffResults .bang1-staff-fixture.bang1-staff-saved .bang1-fixture-state.saved {
   background:#166534;
   color:#f0fdf4;
 }
