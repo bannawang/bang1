@@ -1962,7 +1962,8 @@ document.addEventListener('DOMContentLoaded',function(){
 <script>
   let runnerAll        = window.runnerAll || [];
   let adminConfig      = null;
-  let runnerAllowEdit  = true;   // ใช้เช็คเวลาจะโชว์/ซ่อนปุ่มเวลาเลือกแถว
+  let runnerAllowEdit  = true;   // Existing athlete corrections remain available.
+  let runnerRegistrationOpen = false; // Fail closed for add/delete until config loads.
 
   function getFailTooltip(r){
     const status = (r.Status || '').toString().trim();
@@ -1972,24 +1973,9 @@ document.addEventListener('DOMContentLoaded',function(){
   }
 
   function applyRunnerEditLock(){
-    // ถ้าไม่อนุญาตให้แก้ไข → ซ่อนปุ่มที่เกี่ยวกับการแก้ไขทั้งหมด
-    if (!runnerAllowEdit){
-      const btnDelete = document.getElementById('btnDeleteRunner');
-      const btnPhoto  = document.getElementById('btnUploadRunnerPhoto');
-      const btnProof  = document.getElementById('btnUploadRunnerIdProof');
-
-      if (btnDelete){
-        btnDelete.style.display = 'none';
-        btnDelete.disabled      = true;
-      }
-      if (btnPhoto){
-        btnPhoto.style.display  = 'none';
-        btnPhoto.disabled       = true;
-      }
-      if (btnProof){
-        btnProof.style.display  = 'none';
-        btnProof.disabled       = true;
-      }
+    // Closing the roster must not disable corrections to an existing athlete.
+    if (typeof setRunnerEditMode === 'function') {
+      setRunnerEditMode(!!document.getElementById('runnerId')?.value);
     }
   }
 
@@ -2076,7 +2062,8 @@ document.addEventListener('DOMContentLoaded',function(){
       const diff  = targetMs - nowMs;
 
       if (diff <= 0){
-        el.textContent = 'ขณะนี้ปิดการรับลงทะเบียนแล้ว (หากยังไม่ผ่านการตรวจสอบ โปรดแนบภาพและหลักฐานให้ครบ)';
+        el.textContent = 'ขณะนี้ปิดรับนักวิ่งใหม่และไม่อนุญาตให้ลบ แต่ยังแก้ไขข้อมูลนักวิ่งเดิมได้';
+        if (typeof initAdminForRunnersPage === 'function') initAdminForRunnersPage();
         return;
       }
 
@@ -2108,120 +2095,64 @@ document.addEventListener('DOMContentLoaded',function(){
 
   function applyAdminConfigToRunnersPage(cfg){
     adminConfig = cfg || null;
+    const f = cfg && cfg.features ? cfg.features.runnerReg : null;
+    // Use the server-computed window status. No Admin bypass when closed.
+    runnerRegistrationOpen = f ? f.isOpen === true : true;
+    runnerAllowEdit = true;
 
-    const f  = cfg && cfg.features ? cfg.features.runnerReg : null;
-    const btnSave   = document.getElementById('btnSaveRunner');
-    const btnDelete = document.getElementById('btnDeleteRunner');
-    const btnReset  = document.getElementById('btnResetRunner');
-    const btnPhoto  = document.getElementById('btnUploadRunnerPhoto');
-    const btnProof  = document.getElementById('btnUploadRunnerIdProof');
-    const cdBox     = document.getElementById('runnerCountdownBox');
+    const btnReset = document.getElementById('btnResetRunner');
+    const btnPhoto = document.getElementById('btnUploadRunnerPhoto');
+    const btnProof = document.getElementById('btnUploadRunnerIdProof');
+    const cdBox = document.getElementById('runnerCountdownBox');
+    if (btnReset) {
+      btnReset.style.display = 'inline-flex';
+      btnReset.disabled = false;
+    }
+    // Create/delete are frozen while closed; a selected existing runner
+    // always retains the Save changes action.
+    setRunnerEditMode(!!document.getElementById('runnerId')?.value);
 
-    const openMs  = f && f.openAtEpochMs  ? f.openAtEpochMs  : null;
-    const closeMs = f && f.closeAtEpochMs ? f.closeAtEpochMs : null;
-    const nowMs   = cfg && cfg.serverTimeEpochMs ? cfg.serverTimeEpochMs : Date.now();
-
-    // ---- คำนวณสิทธิ์แก้ไข (allowEdit) ----
-    let allowEdit = false;
-
-    if (f && f.statusText === 'เปิดระบบ'){
-      // เปิดพิเศษ
-      allowEdit = true;
-    } else if (f && f.statusText === 'ปิดระบบ'){
-      allowEdit = false;
-    } else if (openMs && closeMs){
-      // ใช้ช่วงเวลาจาก C-D
-      allowEdit = (nowMs >= openMs && nowMs <= closeMs);
-    } else if (!f || (!f.statusText && !openMs && !closeMs)){
-      // ไม่ได้ตั้งค่าอะไร → ปล่อยให้แก้ไขได้
-      allowEdit = true;
+    // Photo and evidence uploads keep their own independent admin switches.
+    const photoFeature = cfg?.features?.photoEdit;
+    const proofFeature = cfg?.features?.proofEdit;
+    if (btnPhoto) {
+      const allowed = !photoFeature || photoFeature.isOpen === true;
+      btnPhoto.style.display = allowed ? '' : 'none';
+      btnPhoto.disabled = !allowed;
+    }
+    if (btnProof) {
+      const allowed = !proofFeature || proofFeature.isOpen === true;
+      btnProof.style.display = allowed ? '' : 'none';
+      btnProof.disabled = !allowed;
+    }
+    // The admin table has an inline Delete action that must disappear too.
+    if (typeof currentUser !== 'undefined' && currentUser && isRunnerGlobalAdmin()) {
+      renderRunnerTable();
     }
 
-    // Admin can maintain school records even after the public registration window closes.
-    if (typeof currentUser !== 'undefined' && currentUser &&
-        ['Admin','TopAdmin'].includes(currentUser.role)) allowEdit = true;
-    runnerAllowEdit = allowEdit;
-
-    // ---- ปุ่มบันทึก / ลบ / ล้างฟอร์ม ----
-    if (btnSave){
-      if (allowEdit){
-        btnSave.style.display = 'inline-flex';
-        btnSave.disabled = false;
-      } else {
-        btnSave.style.display = 'none';
-        btnSave.disabled = true;
-      }
-    }
-
-    if (btnReset){
-      if (allowEdit){
-        btnReset.style.display = 'inline-flex';
-        btnReset.disabled = false;
-      } else {
-        btnReset.style.display = 'none';
-        btnReset.disabled = true;
-      }
-    }
-
-    if (btnDelete){
-      if (!allowEdit){
-        btnDelete.style.display = 'none';
-        btnDelete.disabled = true;
-      }
-      // ถ้า allowEdit = true ให้ selectRunnerFromRow เป็นคนแสดง/ซ่อนเอง
-    }
-
-    // ---- ปุ่มแนบรูป / แนบหลักฐาน ----
-    if (btnPhoto){
-      const fe = cfg && cfg.features ? cfg.features.photoEdit : null;
-      btnPhoto.style.display = (allowEdit && fe && fe.isOpen) ? '' : 'none';
-      btnPhoto.disabled      = !(allowEdit && fe && fe.isOpen);
-    }
-    if (btnProof){
-      const fe2 = cfg && cfg.features ? cfg.features.proofEdit : null;
-      btnProof.style.display = (allowEdit && fe2 && fe2.isOpen) ? '' : 'none';
-      btnProof.disabled      = !(allowEdit && fe2 && fe2.isOpen);
-    }
-
-    // ---- นับถอยหลัง / แสดงข้อความ ----
     if (!cdBox) return;
+    const openMs = f?.openAtEpochMs || null;
+    const closeMs = f?.closeAtEpochMs || null;
+    const nowMs = cfg?.serverTimeEpochMs || Date.now();
 
-    // เปิดพิเศษ ไม่ดูเวลา
-    if (f && f.statusText === 'เปิดระบบ'){
-      cdBox.style.display  = 'block';
-      cdBox.textContent    = 'ขณะนี้มีการเปิดให้จัดการนักวิ่งเป็นกรณีพิเศษ';
+    if (runnerRegistrationOpen) {
+      if (f?.statusText === 'เปิดระบบ') {
+        cdBox.style.display = 'block';
+        cdBox.textContent = 'ขณะนี้เปิดให้ลงทะเบียนนักวิ่งเป็นกรณีพิเศษ';
+      } else if (closeMs && nowMs < closeMs) {
+        cdBox.style.display = 'block';
+        startCountdown(cdBox, nowMs, closeMs, 'open');
+      } else {
+        cdBox.style.display = 'none';
+      }
       return;
     }
-
-    // ไม่มีเวลา → ไม่ต้องแสดงแถบ
-    if (!openMs && !closeMs && (!f || !f.statusText)){
-      cdBox.style.display = 'none';
-      return;
-    }
-
     cdBox.style.display = 'block';
-
-    // ปิดระบบ หรือเลยเวลาปิด
-    if ((f && f.statusText === 'ปิดระบบ') ||
-        (closeMs && nowMs >= closeMs)){
-      cdBox.textContent = 'ขณะนี้ปิดการรับลงทะเบียนแล้ว (หากยังไม่ผ่านการตรวจสอบ โปรดแนบภาพและหลักฐานให้ครบ)';
-      return;
-    }
-
-    // ยังไม่ถึงเวลาลงทะเบียน
-    if (openMs && nowMs < openMs){
+    if (openMs && nowMs < openMs && f?.statusText !== 'ปิดระบบ') {
       startCountdown(cdBox, nowMs, openMs, 'pre');
       return;
     }
-
-    // อยู่ในช่วงเปิดลงทะเบียน
-    if (closeMs && nowMs < closeMs){
-      startCountdown(cdBox, nowMs, closeMs, 'open');
-      return;
-    }
-
-    // กรณีอื่น ๆ ให้ถือว่าปิด
-    cdBox.textContent = 'ขณะนี้ปิดการรับลงทะเบียนแล้ว (หากยังไม่ผ่านการตรวจสอบ โปรดแนบภาพและหลักฐานให้ครบ)';
+    cdBox.textContent = 'ขณะนี้ปิดรับนักวิ่งใหม่และไม่อนุญาตให้ลบ แต่สามารถเลือกนักวิ่งในตารางเพื่อแก้ไขข้อมูลเดิมและส่งตรวจสอบอีกครั้งได้';
   }
 
   function initAdminForRunnersPage(){
@@ -4550,6 +4481,7 @@ function printRegSummary() {
       if (activeBtn) activeBtn.classList.add('active');
 
       if (pageName === 'runners' && currentUser) {
+        initAdminForRunnersPage();
         resetRunnerForm();
         runnerFilterMode = 'all';
         document.querySelectorAll('[data-runner-filter]').forEach(btn => {
@@ -4882,8 +4814,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function setRunnerEditMode(hasSelection) {
       const saveBtn = document.getElementById('btnSaveRunner');
       const delBtn  = document.getElementById('btnDeleteRunner');
-      if (saveBtn) saveBtn.textContent = hasSelection ? 'แก้ไขข้อมูลนักวิ่ง' : 'บันทึกนักวิ่ง';
-      if (delBtn)  delBtn.style.display = hasSelection ? 'inline-flex' : 'none';
+      const canSave = hasSelection || runnerRegistrationOpen;
+      if (saveBtn) {
+        saveBtn.textContent = hasSelection ? 'บันทึกการแก้ไขนักวิ่ง' : 'บันทึกนักวิ่ง';
+        saveBtn.style.display = canSave ? 'inline-flex' : 'none';
+        saveBtn.disabled = !canSave;
+      }
+      if (delBtn) {
+        const canDelete = hasSelection && runnerRegistrationOpen;
+        delBtn.style.display = canDelete ? 'inline-flex' : 'none';
+        delBtn.disabled = !canDelete;
+      }
     }
 
     function setupRunnerInputsValidation() {
@@ -5087,7 +5028,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (admin && stats) {
         stats.textContent = schoolName
           ? `โรงเรียนที่เลือกมีนักวิ่ง ${visibleRoster.length} คน จากทั้งหมด ${runnersData.length} คน`
-          : `รวมทั้งหมด ${runnersData.length} คน · เลือกโรงเรียนเพื่อเพิ่มนักวิ่งใหม่`;
+          : `รวมทั้งหมด ${runnersData.length} คน · ${runnerRegistrationOpen ? "เลือกโรงเรียนเพื่อเพิ่มนักวิ่งใหม่" : "ปิดรับนักวิ่งใหม่ (แก้ไขข้อมูลเดิมได้)"}`;
       }
 
       tbody.innerHTML = '';
@@ -5177,7 +5118,7 @@ const proofBtnExtraClass = hasProof
           </td>
           <td class="runner-admin-only-col runner-admin-action-cell">
             <button type="button" class="btn btn-outline btn-xs" data-athlete-admin-edit>แก้ไข</button>
-            <button type="button" class="btn btn-outline btn-xs" data-athlete-admin-delete>ลบ</button>
+            ${runnerRegistrationOpen ? '<button type="button" class="btn btn-outline btn-xs" data-athlete-admin-delete>ลบ</button>' : ''}
           </td>`;
 
         if (admin) {
@@ -5261,6 +5202,10 @@ const proofBtnExtraClass = hasProof
       }
 
       const form = collectRunnerForm();
+      if (!form.RunnerID && !runnerRegistrationOpen) {
+        alert('ปิดรับนักวิ่งใหม่แล้ว กรุณาเลือกนักวิ่งเดิมจากตารางเพื่อแก้ไขข้อมูล');
+        return;
+      }
       if (isRunnerGlobalAdmin() && !form.RunnerID && !form.SchoolName) {
         alert('กรุณาเลือกโรงเรียนจากตัวกรองก่อนเพิ่มนักวิ่งใหม่');
         document.getElementById('runnerAdminSchoolFilter')?.focus();
@@ -5308,6 +5253,10 @@ const proofBtnExtraClass = hasProof
   }
   if (currentUser.role === 'Guest') {
     alert('สิทธิ Guest ไม่สามารถลบนักวิ่งได้');
+    return;
+  }
+  if (!runnerRegistrationOpen) {
+    alert('ขณะนี้ปิดรับลงทะเบียนแล้ว ไม่สามารถลบนักวิ่งได้');
     return;
   }
 

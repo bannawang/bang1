@@ -117,8 +117,11 @@ if($action==='runners'){
  json_out(['success'=>true,'data'=>$data]);
 }
 if($action==='save_runner'){
- must_post();require_editor($u);if(!is_admin($u))require_feature('รับลงทะเบียนนักวิ่ง');
+ must_post();require_editor($u);
  $id=(int)($input['RunnerID']??0);
+ // Closing registration freezes roster membership for every role, including Admin.
+ // Corrections to existing runners remain permitted and return to review.
+ if($id<=0)require_feature('รับลงทะเบียนนักวิ่ง');
  $school=$u['schoolName'];
  // Admin must choose an actual school for a new athlete; existing athletes
  // remain in their original school while being edited.
@@ -184,7 +187,8 @@ if($action==='save_runner'){
  json_out(['success'=>true,'id'=>$id,'status'=>'รอตรวจสอบ']);
 }
 if($action==='delete_runner'){
-  must_post();require_editor($u);if(!is_admin($u))require_feature('รับลงทะเบียนนักวิ่ง');
+  // No teacher or admin may remove athletes while registration is closed.
+  must_post();require_editor($u);require_feature('รับลงทะเบียนนักวิ่ง');
   $id=(int)($input['id']??0);
   if($id<=0)json_out(['success'=>false,'message'=>'กรุณาเลือกนักวิ่งก่อนลบ'],422);
   try {
