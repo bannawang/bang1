@@ -66,6 +66,66 @@ try {
     }
     $event31Summary=['heat_counts'=>$heatCounts,'official_heat_results'=>$savedResults];
   }
+  // Read-only production diagnostics for official races 37 and 38.
+  // Aggregate counts and fixture identities only: NO names, athletes or documents.
+  $race37_38=[];
+  $query=db()->query("SELECT id,name,category,level,gender,remark,heat,heat_plan,stage
+    FROM events WHERE id IN (37,38) ORDER BY id");
+  $eventRows=$query->fetchAll(PDO::FETCH_ASSOC);
+  foreach($eventRows as $ev){
+    $id=(int)$ev['id'];
+    $st=db()->prepare('SELECT COALESCE(heat,0) heat, COUNT(*) entries,
+      COUNT(DISTINCT school_name) schools,
+      SUM(CASE WHEN lane IS NOT NULL AND lane BETWEEN 1 AND 8 THEN 1 ELSE 0 END) valid_lanes,
+      COUNT(DISTINCT CASE WHEN lane BETWEEN 1 AND 8 THEN CONCAT(heat,":",lane) ELSE NULL END) distinct_heat_lanes
+      FROM registrations WHERE event_name=? AND category <=> ? AND level <=> ?
+      GROUP BY COALESCE(heat,0) ORDER BY heat');
+    $st->execute([$ev['name'],$ev['category'],$ev['level']]);
+    $heatStats=array_map(static fn($x)=>[
+      'heat'=>(int)$x['heat'],'entries'=>(int)$x['entries'],
+      'schools'=>(int)$x['schools'],'valid_lanes'=>(int)$x['valid_lanes'],
+      'distinct_heat_lanes'=>(int)$x['distinct_heat_lanes']
+    ],$st->fetchAll(PDO::FETCH_ASSOC));
+    $race37_38[$id]=[
+      'source'=>['remark'=>$ev['remark'],'heat'=>$ev['heat'],'plan'=>$ev['heat_plan'],'stage'=>$ev['stage']],
+      'registration_heats'=>$heatStats,
+      'schedule'=>[],'preview'=>[],'staff'=>[]
+    ];
+  }
+  if($race37_38){
+    $action='deployment_diagnostics';
+    function rows(string $sql,array $params=[]):array{
+      $q=db()->prepare($sql);$q->execute($params);return $q->fetchAll(PDO::FETCH_ASSOC);
+    }
+    require_once dirname(__DIR__).'/event-management.php';
+    require_once dirname(__DIR__).'/schedule-registration.php';
+    require_once dirname(__DIR__).'/staff-results.php';
+    $allFixtures=event_schedule_data();
+    $previewRegs=rows('SELECT id,event_id,event_name,category,level,school_name,runner_names,heat,lane,created_at FROM registrations ORDER BY created_at,id');
+    $allPreview=bang1_schedule_preview($allFixtures,$previewRegs)['rows'];
+    $allStaff=staff_result_fixture_rows();
+    foreach($race37_38 as $id=>&$entry){
+      foreach($allFixtures as $f)if((int)($f['EventID']??0)===(int)$id)
+        $entry['schedule'][]=[
+          'heat'=>(string)($f['Heat']??''),'plan'=>(string)($f['HeatPlan']??''),
+          'round'=>(string)($f['CompetitionRound']??''),
+          'teams'=>(int)($f['TeamCount']??0),'entries'=>count($f['entries']??[])
+        ];
+      foreach($allPreview as $f)if((int)($f['EventID']??0)===(int)$id)
+        $entry['preview'][]=[
+          'heat'=>(string)($f['Heat']??''),
+          'status'=>(string)($f['SlotStatus']??''),
+          'teams'=>(int)($f['RegisteredTeams']??0),'entries'=>count($f['entries']??[])
+        ];
+      foreach($allStaff as $f)if((int)($f['eventId']??0)===(int)$id)
+        $entry['staff'][]=[
+          'round'=>(string)($f['round']??''),'heat'=>(int)($f['heat']??0),
+          'schools'=>(int)($f['registeredSchools']??0),
+          'pending_draw'=>(bool)($f['pendingDraw']??true)
+        ];
+    }
+    unset($entry);
+  }
   json_out([
     'success'=>true,
     'source_rows_total'=>$out['source_rows'],
@@ -75,6 +135,7 @@ try {
     'coach_roles'=>$roles,
     'alerts'=>$alerts,
     'event31_qualifier_summary'=>$event31Summary,
+    'race37_38_diagnostics'=>$race37_38,
     'note'=>'Counts only: no names, passwords or personal data in output',
   ]);
 } catch(Throwable $e) {
