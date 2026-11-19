@@ -108,8 +108,14 @@ jobs:
                   break
               status, path = parts
               # Generate PWA raster assets and handle nested/removed files with full mirror.
-              if (status not in ('M','A') or
-                  not re.fullmatch(r'run/[A-Za-z0-9._-]+', path) or
+              # Existing nested PHP/JS files can be uploaded directly without
+              # mirroring all uploads and runner documents (never remove them).
+              # New nested paths still need a full mirror to create directories.
+              nested = len(path.split('/')) > 2
+              valid_path = bool(re.fullmatch(r'run/[A-Za-z0-9._/-]+', path))
+              if (status not in ('M','A') or not valid_path or
+                  '..' in path.split('/') or
+                  (nested and status != 'M') or
                   path in ('run/icon.svg','run/icon-maskable.svg')):
                   safe = False
                   break

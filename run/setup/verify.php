@@ -66,7 +66,7 @@ try {
     }
     $event31Summary=['heat_counts'=>$heatCounts,'official_heat_results'=>$savedResults];
   }
-  // Read-only production diagnostics for official races 37 and 38.
+  // Read-only production diagnostics for official races 37 and 38 (no mutation).
   // Aggregate counts and fixture identities only: NO names, athletes or documents.
   $race37_38=[];
   $query=db()->query("SELECT id,name,category,level,gender,remark,heat,heat_plan,stage
