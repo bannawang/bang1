@@ -1540,3 +1540,45 @@ body{background:#06162c}
   .live-sound-prompt{bottom:max(66px,env(safe-area-inset-bottom));padding:9px 10px;gap:7px}
   .live-sound-prompt-text{flex-basis:120px}
 }
+
+/* The source video remains visible during playback; never create hidden audio.
+   Fixed placement keeps the player within the LIVE viewport while fixtures rotate. */
+.live-music-dock{
+  position:fixed;right:clamp(10px,1.4vw,24px);
+  bottom:max(66px,env(safe-area-inset-bottom));
+  z-index:120;width:min(380px,calc(100vw - 20px));
+  padding:10px;border:1px solid #319dc4;border-radius:14px;
+  background:linear-gradient(155deg,#08223b,#073e55);
+  color:#f0fcff;box-shadow:0 10px 36px #031322bf;
+}
+.live-music-dock[hidden],.live-music-restore[hidden]{display:none!important}
+.live-music-heading{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:8px}
+.live-music-heading>span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.live-music-heading strong{font:900 14px/1.15 system-ui,sans-serif;color:#baff64}
+.live-music-heading small{font:700 11px/1.2 "Sarabun",system-ui,sans-serif;color:#c5e7f5}
+.live-music-heading button{
+  flex:none;cursor:pointer;color:#eaf7ff;background:#15415b;
+  border:1px solid #77b6d5;border-radius:8px;
+  padding:6px 9px;font:700 11px/1.2 "Sarabun",system-ui,sans-serif;
+}
+.live-music-video{
+  display:block;width:100%;height:auto;min-height:200px;
+  aspect-ratio:16/9;border:0;border-radius:7px;
+  background:#07101c;
+}
+.live-music-info{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;
+  gap:4px 10px;margin-top:7px;font:600 10px/1.35 "Sarabun",system-ui,sans-serif;color:#c0dbe9
+}
+.live-music-info a{color:#9be5ff;text-decoration:underline;text-underline-offset:2px}
+.live-music-restore{
+  position:fixed;right:clamp(10px,1.4vw,24px);
+  bottom:max(66px,env(safe-area-inset-bottom));z-index:120;
+  cursor:pointer;padding:10px 15px;border:1px solid #b6ff80;border-radius:99px;
+  background:#083a51;color:#d8ffab;font:900 13px/1.2 "Sarabun",system-ui,sans-serif;
+  box-shadow:0 6px 22px #0313229a;
+}
+@media(max-width:600px){
+  .live-music-dock{bottom:max(58px,env(safe-area-inset-bottom));padding:7px}
+  .live-music-restore{bottom:max(58px,env(safe-area-inset-bottom))}
+}
