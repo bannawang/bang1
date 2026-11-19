@@ -27,5 +27,5 @@ assert(!noLane.includes('ลู่ 0') && !noLane.includes('ลู่ null'),'Do
 const absent=ctx.schoolCell(school([],false));
 assert(!absent.includes('school-heat-badge'),'Nonregistered schools have no assignments');
 const page=fs.readFileSync('run/live/index.php','utf8');
-assert(page.includes('live.js?v=20261118-heat-lane-label'),'Frontend cache key must be updated');
+assert(page.includes('live.js?v=20261119-autosound-volume'),'Frontend cache key must be updated');
 console.log('PASS LIVE school headers show real heat and lane, including finals, with missing lanes omitted');

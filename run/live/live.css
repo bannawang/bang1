@@ -1533,7 +1533,7 @@ body{background:#06162c}
 .live-sound-prompt button{
   padding:8px 14px;flex:none;cursor:pointer;
   border:1px solid #b8ffbd;border-radius:10px;
-  color:#064231;background:#b8ffbe;font:900 inherit;
+  color:#064231;background:#b8ffbe;font-family:inherit;font-weight:900;
 }
 .live-sound-prompt button:focus-visible{outline:3px solid white;outline-offset:3px}
 @media(max-width:600px){
