@@ -130,17 +130,15 @@ jobs:
           set -euo pipefail
           {
             cat <<'LFTP'
-          set net:timeout 20
-          set net:max-retries 2
+          set net:timeout 15
+          set net:max-retries 1
           set net:reconnect-interval-base 3
           set ftp:ssl-force yes
           set ftp:ssl-protect-data yes
           set ssl:verify-certificate yes
           set cmd:fail-exit yes
-          # Existing DirectAdmin folder may return 550 on mkdir; cd must succeed.
-          set cmd:fail-exit no
-          mkdir run
-          set cmd:fail-exit yes
+          # Existing production /bang1/run is provisioned already.
+          # Do not issue mkdir: some DirectAdmin servers hang on it.
           cd run
           LFTP
             if [[ -s /tmp/bang1-incremental-upload.lst ]]; then
@@ -156,18 +154,46 @@ jobs:
           # Keep security rules and private configuration on the server.
           put run/uploads/school-logos/.htaccess -o uploads/school-logos/.htaccess
           cd ..
-          set cmd:fail-exit no
-          mkdir .private
-          set cmd:fail-exit yes
+          # The production private config directory already exists.
           cd .private
           put .private/config.php -o config.php
           put .private/.htaccess -o .htaccess
           bye
           LFTP
           } > /tmp/bang1-upload.lftp
-          # Prevent FTPS stalls from blocking production deploys indefinitely.
-          timeout --signal=TERM --kill-after=10s 300s \
-            lftp --env-password -u "$FTPS_USER" -p "$FTPS_PORT" "$FTPS_HOST" < /tmp/bang1-upload.lftp
+          # Reconnect using a fresh process if the host temporarily stalls.
+          uploaded=false
+          for attempt in 1 2 3; do
+            echo "FTPS upload attempt ${attempt}/3"
+            if timeout --signal=TERM --kill-after=10s 85s \
+              lftp --env-password -u "$FTPS_USER" -p "$FTPS_PORT" "$FTPS_HOST" < /tmp/bang1-upload.lftp; then
+              uploaded=true
+              break
+            fi
+            echo "::warning::FTPS attempt ${attempt} unsuccessful"
+            sleep "$((attempt*3))"
+          done
+          if [[ "$uploaded" != true ]]; then
+            echo "::error::FTPS could not upload the revision after 3 attempts"
+            exit 1
+          fi
+      - name: Verify updated program print code on public website
+        shell: bash
+        run: |
+          BASE="${PUBLIC_BASE_URL:-https://www.bannawang.ac.th/bang1/run}"
+          curl --fail-with-body --location --silent --show-error --retry 2 \
+            --connect-timeout 15 --max-time 45 \
+            -H 'Cache-Control: no-cache' \
+            "${BASE%/}/?verify=${GITHUB_SHA}" > /tmp/bang1-deployed-program.html
+          if ! grep -Fq 'PROGRAM_PRINT_REVISION: 20261119-simplified-pending-note' /tmp/bang1-deployed-program.html; then
+            echo "::error::Public site still serves the old program-print JavaScript"
+            exit 1
+          fi
+          if grep -Fq 'program-waiting-marker' /tmp/bang1-deployed-program.html; then
+            echo "::error::Public site still includes the removed pending marker"
+            exit 1
+          fi
+          echo "PASS: public site serves revised printable athletics program"
       - name: Apply idempotent DB schema
         shell: bash
         run: |
