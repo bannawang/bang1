@@ -39,6 +39,7 @@ Audio.prototype.createGain=function(){
 };
 const ctx={
   newsSoundEnabled:false,newsAudio:null,newsSoundDesired:true,soundWelcomePlayed:false,
+  ambientTimer:null,ambientNextAt:0,ambientChordIndex:0,
   soundButtons:['newsSoundLive','newsSoundSport','newsSoundBreaking'],
   el:id=>(buttons[id]??={
     setAttribute(name,value){this[name]=value},textContent:'',title:''
