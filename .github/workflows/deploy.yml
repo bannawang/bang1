@@ -216,6 +216,17 @@ jobs:
           jq -e '.success == true and (.source_rows_total | type == "number")' /tmp/bang1-import-check.json >/dev/null
           jq '{source_rows_total,table_counts,quality_counts,coach_roles,alerts,event31_qualifier_summary}' /tmp/bang1-import-check.json
           jq '{race37_38_diagnostics}' /tmp/bang1-import-check.json
+          # Both reserved finals must now appear after the original H1/H2
+          # without touching the persisted lane assignments.
+          jq -e '
+            .race37_38_diagnostics as $d |
+            ($d["37"].schedule | any(.round=="รอผลการแข่งขันรอบคัดเลือก" or .round=="ชิงชนะเลิศ"))
+            and ($d["38"].schedule | any(.round=="รอผลการแข่งขันรอบคัดเลือก" or .round=="ชิงชนะเลิศ"))
+            and ($d["37"].preview | length > 0)
+            and ($d["38"].preview | length > 0)
+            and ($d["37"].staff | length > 0)
+            and ($d["38"].staff | length > 0)
+          ' /tmp/bang1-import-check.json >/dev/null
           if [ "$(jq -r '.source_rows_total' /tmp/bang1-import-check.json)" -lt 1 ]; then
             echo "::warning::There are no imported records in MariaDB yet"
           fi

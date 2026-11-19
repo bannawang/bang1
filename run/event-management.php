@@ -16,8 +16,14 @@ function event_is_final(array $e): bool {
     $plan=trim((string)($e['heat_plan']??''));
     $remark=trim((string)($e['remark']??''));
     $stage=trim((string)($e['stage']??''));
+    // Imported reserved finals 37/38 have remark+stage="ชิงชนะเลิศ"
+    // with NULL heat_plan. Their separately printed preliminary heats
+    // remain rows 15/16 and 17/18. They MUST NOT be classified as heats.
+    // A numeric heat_plan still denotes an ordinary seeded heat.
     return $plan==='ชิง'
-        || ($remark==='คัดเลือก' && $stage==='ชิงชนะเลิศ');
+        || ($stage==='ชิงชนะเลิศ' && $remark==='คัดเลือก')
+        || ($stage==='ชิงชนะเลิศ'
+            && $remark==='ชิงชนะเลิศ' && $plan==='');
 }
 function event_registration_rows(): array {
     return rows('SELECT id,event_id,event_name,category,level,school_name,runner_ids,runner_names,photos,heat,lane FROM registrations ORDER BY id');

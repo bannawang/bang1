@@ -40,6 +40,8 @@ jobs:
         run: php .github/scripts/test_final_event31_integration.php
       - name: Imported final-only race 37/38 over-capacity regression
         run: php .github/scripts/test_oversubscribed_final_only.php
+      - name: Existing printed lanes and reserved finals 37/38 regression
+        run: php .github/scripts/test_imported_reserved_final_37_38.php
       - name: Qualified final visible in event schedule and LIVE
         run: php .github/scripts/test_final_schedule_live.php
       - name: Preliminary top-three qualification and final lane allocation regression
