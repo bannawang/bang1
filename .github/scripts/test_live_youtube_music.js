@@ -14,7 +14,7 @@ assert(!/\.live-music-dock|\.live-music-video|\.live-music-restore/.test(css),
 assert(html.includes('id="sportShowcase"')&&html.includes('id="schoolGrid"'),
  'Preserve both SPORT and CHECK-IN broadcast DOM');
 assert(manager.includes("sport?'✅ Check-in':'🏃 Sport'")&&
- manager.includes("request('live_display_set',{mode})"),
+ manager.includes("update('live_display_set',{mode})"),
  'Manager must keep the existing SPORT/CHECK-IN switch');
 assert(app.includes('bang1SportToggle'),
  'Live manager toggle must still exist in the main application');
