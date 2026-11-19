@@ -16,7 +16,7 @@ function event_is_final(array $e): bool {
     $plan=trim((string)($e['heat_plan']??''));
     $remark=trim((string)($e['remark']??''));
     $stage=trim((string)($e['stage']??''));
-    // Production-verified: imported reserved finals 37/38 have remark+stage="ชิงชนะเลิศ"
+    // Actual production fixtures 37/38: reserved finals with empty heat_plan and registered lanes.
     // with NULL heat_plan. Their separately printed preliminary heats
     // remain rows 15/16 and 17/18. They MUST NOT be classified as heats.
     // A numeric heat_plan still denotes an ordinary seeded heat.

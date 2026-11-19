@@ -178,7 +178,7 @@ jobs:
             FTPS_SCHEME=ftp
             [[ "$FTPS_PORT" == "990" ]] && FTPS_SCHEME=ftps
             NETRC_FILE=/tmp/bang1-upload.netrc
-            printf 'machine %s\\nlogin %s\\npassword %s\\n' "$FTPS_HOST" "$FTPS_USER" "$LFTP_PASSWORD" > "$NETRC_FILE"
+            printf 'machine %s\nlogin %s\npassword %s\n' "$FTPS_HOST" "$FTPS_USER" "$LFTP_PASSWORD" > "$NETRC_FILE"
             chmod 600 "$NETRC_FILE"
             if timeout --signal=TERM --kill-after=5s 65s \
               curl --fail --silent --show-error --ssl-reqd --ftp-pasv --ftp-skip-pasv-ip \
