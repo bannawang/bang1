@@ -26,6 +26,8 @@ jobs:
         run: node .github/scripts/test_runner_admin_school.js
       - name: Schedule registration and heat mapping regression
         run: php .github/scripts/test_schedule_entries.php
+      - name: Printed athletics program layout and qualifying source regression
+        run: node .github/scripts/test_printed_program.js
       - name: Staff result numbering and separate heat counts regression
         run: php .github/scripts/test_staff_results_fixtures.php
       - name: Athlete age/category and actual school-grade eligibility regression

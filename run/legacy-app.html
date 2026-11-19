@@ -6422,6 +6422,32 @@ function bang1RegisteredSchoolCount(row) {
   const count = Number(row?.RegisteredTeams ?? 0);
   return Number.isFinite(count) && count >= 0 ? count : 0;
 }
+// Use the official qualifying event IDs in the current schedule snapshot.
+// Never guess an event ID, or accidentally mix boys/girls or age groups.
+function bang1QualifierSourceLabel(finalItem, scheduleRows) {
+  const sourceName = String(finalItem?.EventName || '').trim();
+  const norm = value => String(value ?? '').trim().replace(/\s+/g,' ').toLocaleLowerCase('th');
+  const comparable = (a,b) => !a || !b || norm(a)===norm(b);
+  const sourceIds = new Set();
+  for (const row of Array.isArray(scheduleRows)?scheduleRows:[]) {
+    const stage=String(row?.Stage||'').trim();
+    const remark=String(row?.Remark||'').trim();
+    if (norm(row?.EventName)!==norm(sourceName) ||
+        !comparable(row?.Category,finalItem?.Category) ||
+        !comparable(row?.Level,finalItem?.Level) ||
+        !comparable(row?.Gender,finalItem?.Gender) ||
+        remark!=='คัดเลือก' || stage==='ชิงชนะเลิศ' ||
+        row?.SlotStatus==='waiting' || row?.SlotStatus==='final_ready') continue;
+    const id=Number(row?.EventID);
+    if (Number.isSafeInteger(id) && id>0 && id!==Number(finalItem?.EventID))
+      sourceIds.add(id);
+  }
+  const numbers=[...sourceIds].sort((a,b)=>a-b);
+  const contiguous=numbers.length>1&&numbers.every((n,i)=>!i||n===numbers[i-1]+1);
+  const label=contiguous ? numbers[0]+'-'+numbers[numbers.length-1] : numbers.join(', ');
+  return 'รอผลการแข่งขัน '+sourceName+(label?' รายการที่ '+label:'');
+}
+
 function bang1UpdateScheduleSchoolCount(tr, entries) {
   if (!tr || !tr.isConnected) return;
   const row = scheduleEventsData.find(x =>
@@ -6510,7 +6536,7 @@ function loadSchedule(silent = false) {
         if (r.SlotStatus === 'waiting') {
           const done = Number(r.QualificationSavedHeats || 0);
           const total = Number(r.QualificationRequiredHeats || 0);
-          teamText = 'รอผลการแข่งขันรอบคัดเลือก'+(total ? ' ('+done+'/'+total+' ฮีท)' : '');
+          teamText = bang1QualifierSourceLabel(r, rows)+(total ? ' ('+done+'/'+total+' ฮีท)' : '');
         } else {
           teamText = String(actualTeams);
         }
@@ -6589,7 +6615,7 @@ function onScheduleRowClick(e) {
   // แถวนี้จะไม่สามารถยุบ/ขยายได้ (ไม่มี action ใด ๆ)
   const teamCell = tr.children[3];
   const teamTextInRow = teamCell ? teamCell.textContent.trim() : '';
-  if (teamTextInRow.startsWith('รอผลการแข่งขันรอบคัดเลือก')) {
+  if (teamTextInRow.startsWith('รอผลการแข่งขัน')) {
     return;
   }
 
@@ -6725,55 +6751,76 @@ function onScheduleRowClick(e) {
 
 function getProgramCss() {
   return `
-    @page { margin: 10mm; }
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont,"TH Sarabun New",sans-serif;
-      font-size: 14px;
-      margin: 10mm;
+    @page { size:A4; margin:12mm 11mm; }
+    *,*::before,*::after{box-sizing:border-box}
+    html,body{margin:0;padding:0}
+    body{
+      color:#193049;background:#fff;
+      font-family:"Sarabun","TH Sarabun New",Tahoma,system-ui,sans-serif;
+      font-size:12px;line-height:1.45;
+      -webkit-print-color-adjust:exact;print-color-adjust:exact;
     }
-    .program-title{
-      text-align:center;
-      font-size:20px;
-      font-weight:700;
-      margin-bottom:4px;
+    .program-masthead{
+      text-align:center;border-bottom:2px solid #108eae;
+      padding:3mm 0 4mm;margin-bottom:5mm;
     }
-    .program-subtitle{
-      text-align:center;
-      font-size:13px;
-      margin-bottom:12px;
-      color:#6b7280;
-    }
+    .program-title{font-weight:900;color:#103351;font-size:20px;line-height:1.3}
+    .program-subtitle{color:#60748a;font-size:12px;margin-top:3px}
+    .program-list{display:block}
     .program-item{
-      border-top:1px solid #d1d5db;
-      padding:6px 0;
-      page-break-inside:avoid;
+      display:block;break-inside:avoid;page-break-inside:avoid;
+      border:1px solid #cfdae7;border-left:4px solid #1689b6;
+      border-radius:10px;background:#fff;
+      padding:10px 12px;margin:0 0 10px;
+      box-shadow:0 2px 7px rgba(20,57,86,.05);
     }
-    .program-header{
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-      font-size:13px;
-      margin-bottom:4px;
+    .program-item.final-event{border-left-color:#0e9c65}
+    .program-item.waiting-event{border-left-color:#d69a20;background:#fffef9}
+    .program-header{display:flex;align-items:flex-start;gap:11px}
+    .program-number{
+      flex:0 0 52px;min-height:46px;
+      border:1px solid #b7e6f0;border-radius:9px;
+      background:#eaf8fc;color:#08708e;
+      text-align:center;padding:5px 3px;
     }
-    .program-header span:nth-child(1){
-      width:32px;
+    .program-number small{display:block;font-size:9px;line-height:1.1;font-weight:700}
+    .program-number strong{display:block;font-size:21px;line-height:1.2;font-weight:900}
+    .final-event .program-number{color:#06774e;background:#e6f8ef;border-color:#a8e1c5}
+    .program-headline{min-width:0;flex:1}
+    .program-event-name{margin:0;font-size:15px;line-height:1.32;font-weight:900;color:#152d44}
+    .program-tags{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:6px}
+    .program-tag{
+      display:inline-block;padding:2px 8px;
+      border:1px solid #b8d6ed;border-radius:99px;
+      color:#18547b;background:#eaf5fd;font-size:10px;font-weight:800;
+      line-height:1.45;
     }
-    /* บรรทัดชื่อรายการ: ตัวหนาทั้งประโยค และใหญ่ขึ้นเล็กน้อย */
-    .program-header span:nth-child(2){
-      font-weight:700;
-      font-size:15px;
+    .program-tag.final{color:#086842;background:#e1f7e9;border-color:#9ddab8}
+    .program-tag.waiting{color:#8e580f;background:#fff0c5;border-color:#ebc979}
+    .program-tag.neutral{color:#43576e;background:#f1f5f9;border-color:#d5e0ea}
+    .program-body{margin-top:8px;padding-top:7px;border-top:1px solid #e4ebf2}
+    .program-schools{display:grid;grid-template-columns:1fr;gap:4px}
+    .program-school-row{display:flex;align-items:baseline;gap:8px;min-width:0}
+    .program-lane{
+      flex:0 0 53px;text-align:center;background:#eef6fd;border:1px solid #d5e7f6;
+      border-radius:6px;padding:2px 4px;font-size:10px;font-weight:800;color:#155878;
     }
-    /* ถ้าเป็นรอบชิงชนะเลิศ ให้หัวบรรทัดเป็นสีเขียวทั้งหมด */
-    .program-header.final-event span{
-      color:#16a34a; /* เขียวโทนประมาณ tailwind green-600 */
+    .program-school-copy{min-width:0;flex:1;font-size:11px;overflow-wrap:anywhere}
+    .program-school-copy strong{font-weight:800;color:#203850}
+    .program-school-runners{font-size:10px;color:#536b80}
+    .program-waiting{
+      display:flex;align-items:flex-start;gap:8px;
+      padding:9px 11px;border:1px solid #eed298;border-radius:8px;
+      color:#795213;background:#fff5db;font-size:11px;line-height:1.5;
     }
-    .program-schools{
-      padding-left:28px;
-      font-size:12px;
-      line-height:1.4;
+    .program-waiting-marker{font-weight:900;white-space:nowrap}
+    .program-empty{color:#667a8d;font-size:11px;padding:3px 0}
+    @media screen{
+      body{max-width:900px;margin:24px auto;padding:0 24px}
     }
-    .program-school-runners{
-      font-size:11px;
+    @media print{
+      .program-item{box-shadow:none;margin-bottom:7px}
+      .program-masthead{margin-bottom:5mm}
     }
   `;
 }
@@ -6781,104 +6828,70 @@ function getProgramCss() {
 function buildProgramHtml(programItems) {
   const yearBE = new Date().getFullYear() + 543;
   const css = getProgramCss();
-
+  const safe = value => escSchedule(String(value??''));
   const itemsHtml = programItems.map(item => {
-    const idxText  = item.index + '.';
-    const nameText = item.EventName || '';
-
-    // ----- ค่า F, K และจำนวนที่สมัครจาก column I (TeamCount) -----
-    const roundF = (item.Remark || '').toString().trim();  // F
-    const stageK = (item.Stage  || '').toString().trim();  // K
-    const teamCountStr = String(item.RegisteredTeams ?? 0); // นับใบสมัครปัจจุบัน
-
-    // ----- หมายเหตุตามกติกา -----
-    let displayRemark = '';
-    if (roundF === 'ชิงชนะเลิศ') {
-      displayRemark = roundF;
-    } else if (roundF === 'คัดเลือก') {
-      displayRemark = stageK;
+    const roundF=String(item.Remark||'').trim();
+    const stageK=String(item.Stage||'').trim();
+    const waiting=item.SlotStatus==='waiting';
+    const isFinal=waiting || item.SlotStatus==='final_ready' ||
+      roundF==='ชิงชนะเลิศ' || stageK==='ชิงชนะเลิศ';
+    const isPrelim=!isFinal && (roundF==='คัดเลือก'||stageK==='คัดเลือก');
+    const roundLabel=isFinal?'รอบชิงชนะเลิศ':isPrelim?'รอบคัดเลือก':(roundF||stageK||'รายการแข่งขัน');
+    // EventID is the official numbered program; index is only a fallback.
+    const eventNumber=item.EventID||item.index;
+    const heat=String(item.Heat||'').trim();
+    const teams=Number(item.RegisteredTeams??0);
+    const tags=[
+      '<span class="program-tag '+(isFinal?'final':'')+'">'+safe(roundLabel)+'</span>',
+      heat&&!waiting?'<span class="program-tag neutral">ฮีท '+safe(heat)+'</span>':'',
+      !waiting?'<span class="program-tag neutral">'+safe(teams)+' โรงเรียน</span>':
+        '<span class="program-tag waiting">รอผลคัดเลือก</span>'
+    ].join('');
+    let body='';
+    if(waiting){
+      const waitingText=bang1QualifierSourceLabel(item,programItems);
+      const done=Number(item.QualificationSavedHeats||0);
+      const total=Number(item.QualificationRequiredHeats||0);
+      body='<div class="program-waiting"><span class="program-waiting-marker">⏳ รอผล</span>'+
+        '<span><strong>'+safe(waitingText)+'</strong>'+
+        (total?' · บันทึกผลแล้ว '+safe(done)+'/'+safe(total)+' ฮีท':'')+
+        '</span></div>';
+    } else if(Array.isArray(item.schools)&&item.schools.length){
+      body='<div class="program-schools">'+item.schools.map(s=>{
+        const raw=String(s.RunnerName||'');
+        const runners=raw.split(',').map(t=>t.trim()).filter(Boolean)
+          .map(full=>full.split(/\s+/)[0]);
+        return '<div class="program-school-row">'+
+          '<span class="program-lane">ลู่ '+safe(s.Lane||'–')+'</span>'+
+          '<span class="program-school-copy"><strong>'+safe(s.SchoolName)+'</strong>'+
+          (runners.length?' <span class="program-school-runners">('+safe(runners.join(', '))+')</span>':'')+
+          '</span></div>';
+      }).join('')+'</div>';
     } else {
-      displayRemark = roundF || stageK;
+      body='<div class="program-empty">ยังไม่มีใบสมัครในระบบสำหรับรายการหรือฮีทนี้</div>';
     }
-
-    // เงื่อนไขรอผลการแข่งขันรอบคัดเลือก (F = คัดเลือก, K = ชิงชนะเลิศ)
-    const waitingFinal = item.SlotStatus === 'waiting';
-
-    // เป็นรอบชิงชนะเลิศหรือไม่ (ใช้กับสีเขียวในหัวบรรทัด)
-    const isFinalRound = (displayRemark === 'ชิงชนะเลิศ');
-
-    // ----- สร้างประโยคหัวข้อรวม -----
-    let headerLine = nameText || '';
-
-    if (displayRemark) {
-      headerLine += ` รอบ${displayRemark}`;
-    }
-
-    if (item.Heat) {
-      headerLine += ` การแข่งฮีทที่ ${item.Heat}`;
-    }
-
-    if (waitingFinal) {
-      headerLine += ' รอผลการแข่งขันรอบคัดเลือก';
-    } else if (teamCountStr) {
-      headerLine += ` จำนวน ${teamCountStr} โรงเรียน`;
-    }
-
-    // ----- รายชื่อโรงเรียน / นักวิ่ง -----
-    const schoolsHtml = waitingFinal
-      ? 'รอผลการแข่งขันรอบคัดเลือก'
-      : (item.schools && item.schools.length
-          ? item.schools.map(s => {
-              const laneText = `ลู่วิ่งที่ ${escSchedule(s.Lane || '-')}`;
-              let runnerInfo = '';
-
-              const rawRunner = s.RunnerName || '';
-              if (rawRunner) {
-                const names = rawRunner
-                  .split(',')
-                  .map(t => t.trim())
-                  .filter(Boolean)
-                  .map(full => full.split(/\s+/)[0]); // เอาเฉพาะชื่อจริง
-
-                if (names.length) {
-                  runnerInfo =
-                    ` <span class="program-school-runners">(${escSchedule(names.join(', '))})</span>`;
-                }
-              }
-
-              return `${laneText} : ${escSchedule(s.SchoolName || '')}${runnerInfo}`;
-            }).join('<br>')
-          : 'ยังไม่มีใบสมัครในระบบสำหรับรายการหรือฮีทนี้');
-
-    return `
-      <div class="program-item">
-        <div class="program-header ${isFinalRound ? 'final-event' : ''}">
-          <span>${idxText}</span>
-          <span>${escSchedule(headerLine)}</span>
-        </div>
-        <div class="program-schools">
-          ${schoolsHtml}
-        </div>
-      </div>
-    `;
+    return '<section class="program-item'+(isFinal?' final-event':'')+
+      (waiting?' waiting-event':'')+'">'+
+      '<div class="program-header"><div class="program-number"><small>รายการที่</small><strong>'+
+        safe(eventNumber)+'</strong></div><div class="program-headline">'+
+      '<h2 class="program-event-name">'+safe(item.EventName)+'</h2>'+
+      '<div class="program-tags">'+tags+'</div></div></div>'+
+      '<div class="program-body">'+body+'</div></section>';
   }).join('');
-
-  return `
-<!doctype html>
-<html>
+  return `<!doctype html>
+<html lang="th">
 <head>
-  <meta charset="utf-8"/>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>สูจิบัตรรายการกรีฑา กลุ่มโรงเรียนบางละมุง 1</title>
   <style>${css}</style>
 </head>
 <body>
-  <div class="program-title">
-    สูจิบัตรรายการกรีฑา กลุ่มโรงเรียนบางละมุง 1
-  </div>
-  <div class="program-subtitle">
-    ประจำปีการศึกษา ${yearBE}
-  </div>
-  ${itemsHtml}
+  <header class="program-masthead">
+    <div class="program-title">สูจิบัตรรายการกรีฑา กลุ่มโรงเรียนบางละมุง 1</div>
+    <div class="program-subtitle">ประจำปีการศึกษา ${yearBE}</div>
+  </header>
+  <main class="program-list">${itemsHtml}</main>
 </body>
 </html>`;
 }
@@ -6936,12 +6949,18 @@ function printScheduleProgram() {
 
         programItems.push({
           index: idx + 1,
+          EventID: eventId,
           EventName: eventName,
+          Category: ev.Category || '',
+          Level: ev.Level || '',
+          Gender: ev.Gender || '',
           Heat: heat,
           Remark: ev.Remark || '',  // F
           Stage: ev.Stage  || '',   // K
           RegisteredTeams: teamCount,
           SlotStatus: ev.SlotStatus || '',
+          QualificationSavedHeats: ev.QualificationSavedHeats || 0,
+          QualificationRequiredHeats: ev.QualificationRequiredHeats || 0,
           schools: list.map(d => ({
             SchoolName: d.SchoolName || '',
             Lane: d.Lane || '',
