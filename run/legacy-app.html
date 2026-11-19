@@ -6813,7 +6813,6 @@ function getProgramCss() {
       padding:9px 11px;border:1px solid #eed298;border-radius:8px;
       color:#795213;background:#fff5db;font-size:11px;line-height:1.5;
     }
-    .program-waiting-marker{font-weight:900;white-space:nowrap}
     .program-empty{color:#667a8d;font-size:11px;padding:3px 0}
     @media screen{
       body{max-width:900px;margin:24px auto;padding:0 24px}
@@ -6850,12 +6849,7 @@ function buildProgramHtml(programItems) {
     let body='';
     if(waiting){
       const waitingText=bang1QualifierSourceLabel(item,programItems);
-      const done=Number(item.QualificationSavedHeats||0);
-      const total=Number(item.QualificationRequiredHeats||0);
-      body='<div class="program-waiting"><span class="program-waiting-marker">⏳ รอผล</span>'+
-        '<span><strong>'+safe(waitingText)+'</strong>'+
-        (total?' · บันทึกผลแล้ว '+safe(done)+'/'+safe(total)+' ฮีท':'')+
-        '</span></div>';
+      body='<div class="program-waiting"><strong>'+safe(waitingText)+'</strong></div>';
     } else if(Array.isArray(item.schools)&&item.schools.length){
       body='<div class="program-schools">'+item.schools.map(s=>{
         const raw=String(s.RunnerName||'');

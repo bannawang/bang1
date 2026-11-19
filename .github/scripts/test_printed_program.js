@@ -36,7 +36,13 @@ const label=ctx.waitLabel(waiting,rows);
 assert.equal(label,'รอผลการแข่งขัน วิ่ง 60 เมตร (6 ปี ชาย) รายการที่ 23-24');
 const rendered=ctx.render(rows);
 assert(rendered.includes(label),'Print preview must show exact source race and event range');
-assert(rendered.includes('บันทึกผลแล้ว 1/2 ฮีท'),'Partial qualifying progress stays visible');
+assert(!rendered.includes('⏳ รอผล'),'No redundant waiting prefix inside the program card');
+assert(!rendered.includes('บันทึกผลแล้ว 1/2 ฮีท'),'Do not show partial qualification counters in print');
+assert(!rendered.includes('program-waiting-marker'),'Do not render separate waiting label');
+const noResults=ctx.render([a,b,{...waiting,QualificationSavedHeats:0}]);
+assert(!noResults.includes('บันทึกผลแล้ว 0/2 ฮีท'),
+  'The printout must not show zero-of-two heat counters either');
+assert(noResults.includes(label),'Keep original source-specific waiting line');
 assert(rendered.includes('program-number')&&rendered.includes('program-tag'),
   'Modern card includes a numbered label and round badges');
 assert(rendered.includes('ลู่ 2')&&rendered.includes('โรงเรียนบ้านนาวัง'),
