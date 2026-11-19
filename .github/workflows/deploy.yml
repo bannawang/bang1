@@ -167,8 +167,32 @@ jobs:
           bye
           LFTP
           } > /tmp/bang1-upload.lftp
-          # Reconnect using a fresh process if the host temporarily stalls.
+          # If only the existing event scheduling PHP changed, try native
+          # curl FTPS first. This avoids lftp's intermittent control channel
+          # stall and never transfers/mutates database or registration records.
           uploaded=false
+          if [[ -s /tmp/bang1-incremental-upload.lst ]] &&
+             [[ "$(wc -l < /tmp/bang1-incremental-upload.lst)" -eq 1 ]] &&
+             grep -Fxq 'run/event-management.php' /tmp/bang1-incremental-upload.lst; then
+            echo "Trying targeted curl FTPS upload for event-management.php"
+            FTPS_SCHEME=ftp
+            [[ "$FTPS_PORT" == "990" ]] && FTPS_SCHEME=ftps
+            NETRC_FILE=/tmp/bang1-upload.netrc
+            printf 'machine %s\\nlogin %s\\npassword %s\\n' "$FTPS_HOST" "$FTPS_USER" "$LFTP_PASSWORD" > "$NETRC_FILE"
+            chmod 600 "$NETRC_FILE"
+            if timeout --signal=TERM --kill-after=5s 65s \
+              curl --fail --silent --show-error --ssl-reqd --ftp-pasv --ftp-skip-pasv-ip \
+                --netrc-file "$NETRC_FILE" --connect-timeout 12 --max-time 58 \
+                --upload-file run/event-management.php \
+                "${FTPS_SCHEME}://${FTPS_HOST}:${FTPS_PORT}/run/event-management.php"; then
+              uploaded=true
+              echo "Targeted curl FTPS transfer completed"
+            else
+              echo "::warning::Targeted curl FTPS transfer unavailable; falling back to lftp"
+            fi
+            rm -f "$NETRC_FILE"
+          fi
+          if [[ "$uploaded" != true ]]; then
           for attempt in 1 2 3; do
             echo "FTPS upload attempt ${attempt}/3"
             if timeout --signal=TERM --kill-after=10s 85s \
@@ -179,6 +203,7 @@ jobs:
             echo "::warning::FTPS attempt ${attempt} unsuccessful"
             sleep "$((attempt*3))"
           done
+          fi
           if [[ "$uploaded" != true ]]; then
             echo "::error::FTPS could not upload the revision after 3 attempts"
             exit 1
