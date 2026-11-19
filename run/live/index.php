@@ -11,7 +11,7 @@ header('Cache-Control: no-store, private');
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#06162c">
   <title>จอรายงานตัว LIVE | กรีฑากลุ่มโรงเรียนบางละมุง 1</title>
-  <link rel="stylesheet" href="./live.css?v=20261118-heat-lane-label">
+  <link rel="stylesheet" href="./live.css?v=20261119-autosound-volume">
   <link rel="stylesheet" href="../school-branding.css?v=20261110-crest-order21">
 </head>
 <body>
@@ -132,6 +132,10 @@ header('Cache-Control: no-store, private');
         </div>
       </div>
     </section>
+    <aside id="liveSoundPrompt" class="live-sound-prompt" aria-label="เปิดเสียงการแข่งขัน" hidden>
+      <span class="live-sound-prompt-text">🔊 เสียง LIVE พร้อมเล่น · แตะเพื่อเปิดเสียง</span>
+      <button type="button" id="liveSoundEnable">เปิดเสียง</button>
+    </aside>
     <!-- Shared full-screen news interruption; works in Check-in and Sport modes. -->
     <section id="raceBreaking" class="race-breaking" hidden aria-label="ประกาศผลการแข่งขันล่าสุด" role="region">
       <div class="race-breaking-atmosphere" aria-hidden="true">
@@ -161,6 +165,6 @@ header('Cache-Control: no-store, private');
       </footer>
     </section>
   </main>
-  <script defer src="./live.js?v=20261118-heat-lane-label"></script>
+  <script defer src="./live.js?v=20261119-autosound-volume"></script>
 </body>
 </html>

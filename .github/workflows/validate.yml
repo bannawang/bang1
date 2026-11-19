@@ -18,6 +18,8 @@ jobs:
         run: php .github/scripts/test_live_groups.php
       - name: Public LIVE heat and lane label regression
         run: node .github/scripts/test_live_lane_labels.js
+      - name: LIVE first-view sound and autoplay fallback regression
+        run: node .github/scripts/test_live_autosound.js
       - name: Runner G-number and deletion-rule regression
         run: php .github/scripts/test_runner_rules.php
       - name: Verified athlete photo comparison regression

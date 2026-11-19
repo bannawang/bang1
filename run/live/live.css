@@ -1515,3 +1515,28 @@ body{background:#06162c}
  .race-podium-slot{animation:none!important}
 }
 
+
+/* Browsers may require a user gesture for audible playback.
+   This small prompt does not obscure the scoreboard or block other actions. */
+.live-sound-prompt{
+  position:fixed;z-index:110;right:clamp(10px,2.5vw,32px);
+  bottom:max(74px,env(safe-area-inset-bottom));
+  display:flex;align-items:center;flex-wrap:wrap;gap:10px;
+  max-width:min(92vw,420px);padding:11px 13px;
+  color:#f1ffe7;background:linear-gradient(115deg,#103e4c,#155851);
+  border:1.5px solid #a6ffab;border-radius:13px;
+  box-shadow:0 12px 40px #001728a8;
+  font:800 clamp(12px,1.2vw,15px)/1.3 "Sarabun",system-ui,sans-serif;
+}
+.live-sound-prompt[hidden]{display:none!important}
+.live-sound-prompt-text{flex:1 1 180px}
+.live-sound-prompt button{
+  padding:8px 14px;flex:none;cursor:pointer;
+  border:1px solid #b8ffbd;border-radius:10px;
+  color:#064231;background:#b8ffbe;font:900 inherit;
+}
+.live-sound-prompt button:focus-visible{outline:3px solid white;outline-offset:3px}
+@media(max-width:600px){
+  .live-sound-prompt{bottom:max(66px,env(safe-area-inset-bottom));padding:9px 10px;gap:7px}
+  .live-sound-prompt-text{flex-basis:120px}
+}

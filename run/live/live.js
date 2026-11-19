@@ -556,7 +556,14 @@
   const BREAKING_DURATION_MS=15000;
   let breakingBootstrapped=false,breakingSeen=new Set(),breakingCurrent=null;
   let breakingQueued=null,breakingStarted=0,newsSoundEnabled=false,newsAudio=null;
+  // Sound is on by default for the public screen. Respect an explicit user mute.
+  const SOUND_PREFERENCE='bang1-live-sound-enabled';
+  let newsSoundDesired=true,soundWelcomePlayed=false;
+  try{newsSoundDesired=window.localStorage.getItem(SOUND_PREFERENCE)!=='off';}catch(error){}
   const soundButtons=['newsSoundLive','newsSoundSport','newsSoundBreaking'];
+  function saveNewsSoundPreference(enabled){
+    try{window.localStorage.setItem(SOUND_PREFERENCE,enabled?'on':'off');}catch(error){}
+  }
   function breakingIdentity(result){
     if(!result||!Array.isArray(result.places))return '';
     return JSON.stringify([result.resultId||result.eventId||0,result.eventId||0,
@@ -761,19 +768,17 @@
       button.setAttribute('aria-pressed',newsSoundEnabled?'true':'false');
       button.textContent=newsSoundEnabled?(id==='newsSoundBreaking'?'🔊 เสียงเปิดอยู่':'🔊 เสียง'):
         (id==='newsSoundBreaking'?'🔇 เปิดเสียง':'🔇 เสียง');
-      button.title=newsSoundEnabled?'ปิดทำนองประกาศผล':
-        'กดเปิดเสียงหนึ่งครั้งเพื่อฟังทำนองประกาศผลการแข่งขัน';
+      button.title=newsSoundEnabled?'ปิดเสียงประกาศผลการแข่งขัน':
+        'แตะเพื่อเปิดเสียงประกาศผลการแข่งขัน';
     });
+    const prompt=el('liveSoundPrompt');
+    if(prompt)prompt.hidden=!newsSoundDesired||newsSoundEnabled;
   }
   function playNewsFanfare(finalRound){
-    if(!newsSoundEnabled||!newsAudio)return;
+    if(!newsSoundEnabled||!newsAudio||newsAudio.state!=='running')return;
     try{
-      if(newsAudio.state!=='running'){
-        void newsAudio.resume().catch(()=>{});
-        if(newsAudio.state!=='running')return;
-      }
-      // Original brief 2.4s victory jingle synthesized locally. No recording,
-      // streaming file, copyrighted song, or third-party audio resource.
+      // Original synthesized jingle, with a stronger but controlled audio gain.
+      // Browser/device sound volume is always controlled by the viewer.
       const sequence=finalRound?
         [[0,523,.22],[.24,659,.22],[.48,784,.25],[.78,1046,.41],
          [1.28,784,.19],[1.50,988,.19],[1.75,1046,.5]]:
@@ -785,7 +790,7 @@
         osc.type='triangle';
         osc.frequency.setValueAtTime(freq,start+offset);
         gain.gain.setValueAtTime(.0001,start+offset);
-        gain.gain.exponentialRampToValueAtTime(.085,start+offset+.026);
+        gain.gain.exponentialRampToValueAtTime(.20,start+offset+.026);
         gain.gain.exponentialRampToValueAtTime(.0001,start+offset+duration);
         osc.connect(gain);gain.connect(newsAudio.destination);
         osc.start(start+offset);osc.stop(start+offset+duration+.02);
@@ -794,21 +799,47 @@
       console.warn('Track Flash sound unavailable',error);
     }
   }
-  function toggleBreakingSound(){
-    if(!newsSoundEnabled){
-      try{
-        const AudioCtor=window.AudioContext||window.webkitAudioContext;
-        if(!AudioCtor)throw Error('AudioContext unavailable');
-        if(!newsAudio)newsAudio=new AudioCtor();
-        newsSoundEnabled=true;
-        void newsAudio.resume().catch(()=>{});
-      }catch(error){newsSoundEnabled=false}
-    }else{
+  async function enableBreakingSound(playWelcome=true){
+    if(!newsSoundDesired)return false;
+    try{
+      const AudioCtor=window.AudioContext||window.webkitAudioContext;
+      if(!AudioCtor)throw Error('AudioContext unavailable');
+      if(!newsAudio)newsAudio=new AudioCtor();
+      // Some browsers allow autoplay; others require an actual pointer/key gesture.
+      if(newsAudio.state!=='running')await newsAudio.resume();
+      if(!newsSoundDesired||newsAudio.state!=='running')return false;
+      newsSoundEnabled=true;
+      updateNewsAudioButtons();
+      if(playWelcome&&!soundWelcomePlayed){
+        soundWelcomePlayed=true;
+        playNewsFanfare(false);
+      }
+      return true;
+    }catch(error){
       newsSoundEnabled=false;
+      updateNewsAudioButtons();
+      return false;
     }
+  }
+  function toggleBreakingSound(){
+    if(newsSoundEnabled){
+      newsSoundDesired=false;
+      newsSoundEnabled=false;
+      saveNewsSoundPreference(false);
+      updateNewsAudioButtons();
+      if(newsAudio?.state==='running')void newsAudio.suspend().catch(()=>{});
+      return;
+    }
+    newsSoundDesired=true;
+    saveNewsSoundPreference(true);
     updateNewsAudioButtons();
-    if(newsSoundEnabled&&breakingCurrent)
-      playNewsFanfare(breakingCurrent.round==='ชิงชนะเลิศ');
+    void enableBreakingSound(true);
+  }
+  function unlockSoundOnFirstGesture(event){
+    if(!newsSoundDesired||newsSoundEnabled)return;
+    // Sound buttons manage their own on/off state.
+    if(event?.target?.closest?.('.news-sound-toggle,#liveSoundEnable'))return;
+    void enableBreakingSound(true);
   }
 
   function render(payload){
@@ -862,7 +893,17 @@
     }finally{requestBusy=false;}
   }
   soundButtons.forEach(id=>el(id)?.addEventListener('click',toggleBreakingSound));
+  el('liveSoundEnable')?.addEventListener('click',()=>{
+    newsSoundDesired=true;
+    saveNewsSoundPreference(true);
+    void enableBreakingSound(true);
+  });
+  document.addEventListener('pointerdown',unlockSoundOnFirstGesture,{capture:true,passive:true});
+  document.addEventListener('keydown',event=>{
+    if(event.key==='Enter'||event.key===' ')unlockSoundOnFirstGesture(event);
+  },{capture:true});
   updateNewsAudioButtons();
+  if(newsSoundDesired)void enableBreakingSound(true);
   setInterval(updateBreakingClock,120);
   el('sportRosterPrev').addEventListener('click',()=>stepSportRosterPage(-1));
   el('sportRosterNext').addEventListener('click',()=>stepSportRosterPage(1));
