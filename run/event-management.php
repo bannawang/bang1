@@ -96,7 +96,8 @@ function event_schedule_data(): array {
         $teams=count(event_schools($regs));
         $prelims=array_values(array_filter($evs,static fn($ev)=>!event_is_final($ev)));
         $finals=array_values(array_filter($evs,static fn($ev)=>event_is_final($ev)));
-        $hasPreliminaryFixtures=count($prelims)>0;
+        // A pre-set direct final can also act as the preliminary source
+        // when more than eight schools enter and no separate heat rows exist.
         if(!$prelims)$prelims=[$evs[0]];
         if($teams===0){
             foreach($evs as $ev){
@@ -112,33 +113,11 @@ function event_schedule_data(): array {
         // With 9+ schools the configured multiple heats are qualifiers and
         // the separately seeded final waits for qualifying results.
         $directFinal=$teams<=8;
-        // A single final-only source row cannot legally represent two heats.
-        // In particular, the imported events 37 and 38 have 9/10 schools.
-        // Preserve each official EventID exactly once until Admin configures
-        // distinct preliminary fixtures. Never duplicate that EventID or
-        // assign fictitious official heat/lane numbers on a printable program.
-        if(!$directFinal && !$hasPreliminaryFixtures && count($evs)===1){
-            $line=event_map_schedule($evs[0]);
-            $entry=[];
-            foreach($regs as $reg){
-                $entry[]=[
-                    'SchoolName'=>(string)$reg['school_name'],
-                    'RunnerName'=>(string)($reg['runner_names']??''),
-                    'Heat'=>null,'Lane'=>null
-                ];
-            }
-            $line['Heat']='';
-            $line['TeamCount']=$teams;
-            $line['TotalTeams']=$teams;
-            $line['SchoolCount']=$teams;
-            $line['RegisteredTeams']=$teams;
-            $line['QualificationRequiredHeats']=count($sizes);
-            $line['NeedsQualifierSetup']=true;
-            $line['CompetitionRound']='ต้องจัดรอบคัดเลือก';
-            $line['entries']=$entry;
-            $result[]=$line;
-            continue;
-        }
+        // An imported single "final" event is conditional, not a permanent
+        // direct final. When >8 schools register, its same official EventID
+        // represents preliminary heats 1/2 and a virtual waiting final.
+        // Distinct fixture identities use (EventID, round, heat), while the
+        // database events and registrations remain completely untouched.
         $byHeat=[];
         foreach($regs as $reg){
             $h=(int)($reg['heat']??0);
@@ -227,10 +206,19 @@ function event_schedule_data(): array {
             }
         }
     }
-    // Preserve the original spreadsheet/program order (e.g. final EventID 40
-    // stays in its preconfigured position, not immediately after preliminary 5).
-    usort($result,static fn($left,$right)=>
-        ((int)($left['SourceOrder']??$left['EventID']))<=>((int)($right['SourceOrder']??$right['EventID'])));
+    // Preserve official program order and keep virtual preliminary heats 1/2
+    // ahead of their waiting final if they share a single imported EventID.
+    usort($result,static function(array $left,array $right):int{
+        $source=((int)($left['SourceOrder']??$left['EventID']))
+            <=>((int)($right['SourceOrder']??$right['EventID']));
+        if($source!==0)return $source;
+        $id=((int)($left['EventID']??0))<=>((int)($right['EventID']??0));
+        if($id!==0)return $id;
+        $lf=trim((string)($left['HeatPlan']??''))==='ชิง'?1:0;
+        $rf=trim((string)($right['HeatPlan']??''))==='ชิง'?1:0;
+        if($lf!==$rf)return $lf<=>$rf;
+        return (int)($left['Heat']??0)<=>(int)($right['Heat']??0);
+    });
     return $result;
 }
 function event_map_schedule(array $e): array {
@@ -254,13 +242,17 @@ if($action==='manage_events'){
     $out=[];
     foreach($events as $ev){
         $matched=event_matching_regs($ev,$regs);
+        $count=count(event_schools($matched));
+        $onlyFinal=(count(event_group_rows($ev))===1) && event_is_final($ev);
         $out[]=[
             'id'=>(int)$ev['id'],'name'=>$ev['name'],'category'=>$ev['category'],
             'level'=>$ev['level'],'gender'=>$ev['gender'],'remark'=>$ev['remark'],
             'heat'=>$ev['heat'],'heat_plan'=>$ev['heat_plan'],'stage'=>$ev['stage'],
-            'schoolCount'=>count(event_schools($matched)),
+            'schoolCount'=>$count,
             'registrationCount'=>count($matched),
             'isFinalSlot'=>event_is_final($ev),
+            'autoPreliminary'=>$onlyFinal && $count>8,
+            'heatCount'=>count(event_heat_sizes($count)),
             'autoCancelled'=>event_is_final($ev) && count(event_schools($matched))>0 &&
                 count(event_schools($matched))<=8 && count(event_group_rows($ev))>1
         ];

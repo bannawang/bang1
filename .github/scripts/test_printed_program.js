@@ -69,22 +69,28 @@ for(const id of [36,37,38,39]){
 }
 assert(preserved.includes('ยังไม่มีใบสมัครในระบบสำหรับรายการหรือฮีทนี้'),
   'Empty races must show a factual empty-state instead of invented entrants');
-const finalOnly=[37,38].map((id)=>({
-  index:id,EventID:id,
-  EventName:'วิ่ง 80 เมตร (6 ปี '+(id===37?'ชาย':'หญิง')+')',
-  RegisteredTeams:id===37?9:10,SlotStatus:'needs_qualifier_setup',
-  QualificationRequiredHeats:2,Remark:'ชิงชนะเลิศ',Stage:'ชิงชนะเลิศ',
-  schools:Array.from({length:id===37?9:10},(_,i)=>({
-    SchoolName:'โรงเรียนทดสอบ '+(i+1),Lane:null,RunnerName:'นักกีฬา '+(i+1)
-  }))
-}));
-const finalOnlyPrint=ctx.render(finalOnly);
-assert(finalOnlyPrint.includes('ต้องจัดรอบคัดเลือก'),
-  'Do not misrepresent a nine-school race as a direct final');
-assert(finalOnlyPrint.includes('ต้องกำหนดรอบคัดเลือก 2 ฮีทก่อนการแข่งขัน'),
-  'Show why imported final-only events need configuration');
-assert(finalOnlyPrint.includes('รอจัดลู่')&&!finalOnlyPrint.includes('ลู่ 0'),
-  'Do not invent lane numbers for unconfigured events');
+const conditionalFinals=[37,38].flatMap((id)=>{
+  const base={
+    index:id,EventID:id,EventName:'วิ่ง 80 เมตร (6 ปี '+(id===37?'ชาย':'หญิง')+')',
+    Category:'วิ่งเดี่ยว',Level:'อนุบาล',Gender:id===37?'ชาย':'หญิง'
+  };
+  return [1,2].map(heat=>({
+    ...base,Heat:String(heat),Remark:'คัดเลือก',Stage:'คัดเลือก',
+    RegisteredTeams:heat===1?5:id===37?4:5,
+    SlotStatus:'drawn',
+    schools:[{SchoolName:'โรงเรียนตัวอย่าง',Lane:heat+2,RunnerName:'นักกีฬา'}]
+  })).concat([{...base,Heat:'ชิง',Remark:'คัดเลือก',Stage:'ชิงชนะเลิศ',
+    SlotStatus:'waiting',RegisteredTeams:0,schools:[]}]);
+});
+const finalOnlyPrint=ctx.render(conditionalFinals);
+assert(finalOnlyPrint.includes('ฮีท 1')&&finalOnlyPrint.includes('ฮีท 2'),
+  'Preset finals above eight schools must show both preliminary heats');
+assert(finalOnlyPrint.includes('รอบชิงชนะเลิศ')&&finalOnlyPrint.includes('รอผลคัดเลือก'),
+  'Each race must retain a distinct pending final');
+assert(finalOnlyPrint.includes('รอบคัดเลือกฮีท 1-2 รายการที่ 37'),
+  'Conditional final must identify its own exact qualifying heats');
+assert(!finalOnlyPrint.includes('ฮีท ชิง'),
+  'A final is a separate stage, not a fictitious heat called ชิง');
 const loadFn=section('function loadSchedule(silent = false) {','function onScheduleRowClick(');
 const snapshot=loadFn.indexOf('scheduleEventsData = rows.slice();');
 const filtered=loadFn.indexOf('rows = rows.filter(function (r) {');

@@ -6429,6 +6429,7 @@ function bang1QualifierSourceLabel(finalItem, scheduleRows) {
   const norm = value => String(value ?? '').trim().replace(/\s+/g,' ').toLocaleLowerCase('th');
   const comparable = (a,b) => !a || !b || norm(a)===norm(b);
   const sourceIds = new Set();
+  const sourceHeats = new Set();
   for (const row of Array.isArray(scheduleRows)?scheduleRows:[]) {
     const stage=String(row?.Stage||'').trim();
     const remark=String(row?.Remark||'').trim();
@@ -6439,13 +6440,21 @@ function bang1QualifierSourceLabel(finalItem, scheduleRows) {
         remark!=='คัดเลือก' || stage==='ชิงชนะเลิศ' ||
         row?.SlotStatus==='waiting' || row?.SlotStatus==='final_ready') continue;
     const id=Number(row?.EventID);
-    if (Number.isSafeInteger(id) && id>0 && id!==Number(finalItem?.EventID))
-      sourceIds.add(id);
+    if (!Number.isSafeInteger(id) || id<=0) continue;
+    if (id===Number(finalItem?.EventID)) {
+      const heat=Number(row?.Heat);
+      if(Number.isInteger(heat)&&heat>0)sourceHeats.add(heat);
+    } else sourceIds.add(id);
   }
   const numbers=[...sourceIds].sort((a,b)=>a-b);
   const contiguous=numbers.length>1&&numbers.every((n,i)=>!i||n===numbers[i-1]+1);
   const label=contiguous ? numbers[0]+'-'+numbers[numbers.length-1] : numbers.join(', ');
-  return 'รอผลการแข่งขัน '+sourceName+(label?' รายการที่ '+label:'');
+  const ownHeats=[...sourceHeats].sort((a,b)=>a-b);
+  const ownHeatLabel=ownHeats.length>1
+    ? ' รอบคัดเลือกฮีท '+ownHeats.join('-'):'';
+  const ownNumber=ownHeats.length?' รายการที่ '+finalItem.EventID:'';
+  return 'รอผลการแข่งขัน '+sourceName+
+    (label?' รายการที่ '+label:ownHeatLabel+ownNumber);
 }
 
 function bang1UpdateScheduleSchoolCount(tr, entries) {
@@ -6849,7 +6858,7 @@ function buildProgramHtml(programItems) {
     const teams=Number(item.RegisteredTeams??0);
     const tags=[
       '<span class="program-tag '+(isFinal?'final':'')+'">'+safe(roundLabel)+'</span>',
-      heat&&!waiting?'<span class="program-tag neutral">ฮีท '+safe(heat)+'</span>':'',
+      heat&&!waiting&&heat!=='ชิง'?'<span class="program-tag neutral">ฮีท '+safe(heat)+'</span>':'',
       !waiting?'<span class="program-tag neutral">'+safe(teams)+' โรงเรียน</span>':
         '<span class="program-tag waiting">รอผลคัดเลือก</span>',
       needsSetup?'<span class="program-tag waiting">ต้องกำหนดฮีทและลู่</span>':''
@@ -8384,7 +8393,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <link rel="stylesheet" href="score-summary.css?v=20261108-scores-blue-first">
 <script src="staff-results.js?v=20261118-final-qualifiers-ordered-v2"></script>
 <script src="score-summary.js?v=20261108-scores-blue-first"></script>
-<script src="event-management.js?v=20261108-events-dropdowns-sync"></script>
+<script src="event-management.js?v=20261119-autosplit-seeded-finals"></script>
 <script src="mobile-shell.js?v=20261110-bnw-website-link"></script>
 <script src="account-portal.js?v=20261111-approval-notice"></script>
 <script src="vendor/qrcode.js?v=20261109-print-qr"></script>
