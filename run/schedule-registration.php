@@ -137,6 +137,12 @@ function bang1_schedule_preview(array $fixtures,array $registrations):array {
         $ready=(string)($row['CompetitionRound']??'')==='ชิงชนะเลิศ'
             && (string)($row['HeatPlan']??'')==='ชิง'
             && count($row['entries'])===6;
+        // Do not turn an over-capacity final-only event into a fake draw.
+        // Preserve its official event number and real entrant list intact.
+        if(!empty($row['NeedsQualifierSetup'])){
+            $row['SlotStatus']='needs_qualifier_setup';
+            continue;
+        }
         $row['SlotStatus']=$ready?'final_ready':'not_drawn';
     }
     unset($row);

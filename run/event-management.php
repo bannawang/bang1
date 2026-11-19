@@ -96,6 +96,7 @@ function event_schedule_data(): array {
         $teams=count(event_schools($regs));
         $prelims=array_values(array_filter($evs,static fn($ev)=>!event_is_final($ev)));
         $finals=array_values(array_filter($evs,static fn($ev)=>event_is_final($ev)));
+        $hasPreliminaryFixtures=count($prelims)>0;
         if(!$prelims)$prelims=[$evs[0]];
         if($teams===0){
             foreach($evs as $ev){
@@ -111,6 +112,33 @@ function event_schedule_data(): array {
         // With 9+ schools the configured multiple heats are qualifiers and
         // the separately seeded final waits for qualifying results.
         $directFinal=$teams<=8;
+        // A single final-only source row cannot legally represent two heats.
+        // In particular, the imported events 37 and 38 have 9/10 schools.
+        // Preserve each official EventID exactly once until Admin configures
+        // distinct preliminary fixtures. Never duplicate that EventID or
+        // assign fictitious official heat/lane numbers on a printable program.
+        if(!$directFinal && !$hasPreliminaryFixtures && count($evs)===1){
+            $line=event_map_schedule($evs[0]);
+            $entry=[];
+            foreach($regs as $reg){
+                $entry[]=[
+                    'SchoolName'=>(string)$reg['school_name'],
+                    'RunnerName'=>(string)($reg['runner_names']??''),
+                    'Heat'=>null,'Lane'=>null
+                ];
+            }
+            $line['Heat']='';
+            $line['TeamCount']=$teams;
+            $line['TotalTeams']=$teams;
+            $line['SchoolCount']=$teams;
+            $line['RegisteredTeams']=$teams;
+            $line['QualificationRequiredHeats']=count($sizes);
+            $line['NeedsQualifierSetup']=true;
+            $line['CompetitionRound']='ต้องจัดรอบคัดเลือก';
+            $line['entries']=$entry;
+            $result[]=$line;
+            continue;
+        }
         $byHeat=[];
         foreach($regs as $reg){
             $h=(int)($reg['heat']??0);

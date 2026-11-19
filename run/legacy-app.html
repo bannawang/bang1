@@ -6560,7 +6560,9 @@ function loadSchedule(silent = false) {
         r._displayTeamText   = teamText;
         r._displayRemarkText = remarkText;
 
-        const drawText = r.SlotStatus==='final_ready' ? 'พร้อมแข่งขันรอบชิง · 6 โรงเรียน'
+        const drawText = r.SlotStatus==='needs_qualifier_setup'
+          ? 'ต้องตั้งค่ารอบคัดเลือก ('+actualTeams+' โรงเรียน เกิน 8 ลู่)'
+          : r.SlotStatus==='final_ready' ? 'พร้อมแข่งขันรอบชิง · 6 โรงเรียน'
           : r.SlotStatus==='preview' ? 'เบื้องต้น · ยังไม่สุ่ม'
           : r.SlotStatus==='drawn' ? 'มีการจัดฮีท/ลู่ไว้แล้ว'
           : r.SlotStatus==='waiting' ? 'รอผลคัดเลือก' : 'ยังไม่มีผู้สมัคร';
@@ -6835,10 +6837,12 @@ function buildProgramHtml(programItems) {
     const roundF=String(item.Remark||'').trim();
     const stageK=String(item.Stage||'').trim();
     const waiting=item.SlotStatus==='waiting';
+    const needsSetup=item.SlotStatus==='needs_qualifier_setup';
     const isFinal=waiting || item.SlotStatus==='final_ready' ||
       roundF==='ชิงชนะเลิศ' || stageK==='ชิงชนะเลิศ';
     const isPrelim=!isFinal && (roundF==='คัดเลือก'||stageK==='คัดเลือก');
-    const roundLabel=isFinal?'รอบชิงชนะเลิศ':isPrelim?'รอบคัดเลือก':(roundF||stageK||'รายการแข่งขัน');
+    const roundLabel=needsSetup?'ต้องจัดรอบคัดเลือก'
+      :isFinal?'รอบชิงชนะเลิศ':isPrelim?'รอบคัดเลือก':(roundF||stageK||'รายการแข่งขัน');
     // EventID is the official numbered program; index is only a fallback.
     const eventNumber=item.EventID||item.index;
     const heat=String(item.Heat||'').trim();
@@ -6847,19 +6851,26 @@ function buildProgramHtml(programItems) {
       '<span class="program-tag '+(isFinal?'final':'')+'">'+safe(roundLabel)+'</span>',
       heat&&!waiting?'<span class="program-tag neutral">ฮีท '+safe(heat)+'</span>':'',
       !waiting?'<span class="program-tag neutral">'+safe(teams)+' โรงเรียน</span>':
-        '<span class="program-tag waiting">รอผลคัดเลือก</span>'
+        '<span class="program-tag waiting">รอผลคัดเลือก</span>',
+      needsSetup?'<span class="program-tag waiting">ต้องกำหนดฮีทและลู่</span>':''
     ].join('');
     let body='';
     if(waiting){
       const waitingText=bang1QualifierSourceLabel(item,programItems);
       body='<div class="program-waiting"><strong>'+safe(waitingText)+'</strong></div>';
     } else if(Array.isArray(item.schools)&&item.schools.length){
-      body='<div class="program-schools">'+item.schools.map(s=>{
+      if(needsSetup){
+        const heats=Number(item.QualificationRequiredHeats||Math.ceil(teams/8));
+        body='<div class="program-waiting"><strong>มีผู้สมัคร '+safe(teams)+
+          ' โรงเรียน เกิน 8 ลู่ · ต้องกำหนดรอบคัดเลือก '+safe(heats)+
+          ' ฮีทก่อนการแข่งขัน</strong></div>';
+      }
+      body+='<div class="program-schools">'+item.schools.map(s=>{
         const raw=String(s.RunnerName||'');
         const runners=raw.split(',').map(t=>t.trim()).filter(Boolean)
           .map(full=>full.split(/\s+/)[0]);
         return '<div class="program-school-row">'+
-          '<span class="program-lane">ลู่ '+safe(s.Lane||'–')+'</span>'+
+          '<span class="program-lane">'+(needsSetup?'รอจัดลู่':'ลู่ '+safe(s.Lane||'–'))+'</span>'+
           '<span class="program-school-copy"><strong>'+safe(s.SchoolName)+'</strong>'+
           (runners.length?' <span class="program-school-runners">('+safe(runners.join(', '))+')</span>':'')+
           '</span></div>';
@@ -6868,7 +6879,7 @@ function buildProgramHtml(programItems) {
       body='<div class="program-empty">ยังไม่มีใบสมัครในระบบสำหรับรายการหรือฮีทนี้</div>';
     }
     return '<section class="program-item'+(isFinal?' final-event':'')+
-      (waiting?' waiting-event':'')+'">'+
+      ((waiting||needsSetup)?' waiting-event':'')+'">'+
       '<div class="program-header"><div class="program-number"><small>รายการที่</small><strong>'+
         safe(eventNumber)+'</strong></div><div class="program-headline">'+
       '<h2 class="program-event-name">'+safe(item.EventName)+'</h2>'+
