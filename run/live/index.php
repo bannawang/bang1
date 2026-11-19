@@ -11,7 +11,7 @@ header('Cache-Control: no-store, private');
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#06162c">
   <title>จอรายงานตัว LIVE | กรีฑากลุ่มโรงเรียนบางละมุง 1</title>
-  <link rel="stylesheet" href="./live.css?v=20261119-visible-youtube-loop">
+  <link rel="stylesheet" href="./live.css?v=20261119-restored-live-audio">
   <link rel="stylesheet" href="../school-branding.css?v=20261110-crest-order21">
 </head>
 <body>
@@ -132,29 +132,6 @@ header('Cache-Control: no-store, private');
         </div>
       </div>
     </section>
-    <!-- Visible, official YouTube embed: never extract audio or hide a playing player.
-         Autoplay may be blocked; YouTube's own play button remains accessible. -->
-    <aside id="liveMusicDock" class="live-music-dock" aria-label="ดนตรีประกอบหน้าจอ LIVE จาก YouTube">
-      <div class="live-music-heading">
-        <span><strong>♫ LIVE MUSIC</strong><small>YouTube · ดนตรีบรรเลง</small></span>
-        <button id="liveMusicStop" type="button" title="หยุดเพลงและปิดเครื่องเล่น">หยุดเพลง ✕</button>
-      </div>
-      <iframe id="liveMusicVideo" class="live-music-video"
-        title="ดนตรีบรรเลง LIVE จาก YouTube"
-        src="https://www.youtube-nocookie.com/embed/0_tJ56tW0PI?autoplay=1&amp;loop=1&amp;playlist=0_tJ56tW0PI&amp;playsinline=1&amp;controls=1"
-        allow="autoplay; encrypted-media; picture-in-picture"
-        referrerpolicy="strict-origin-when-cross-origin" loading="eager"
-        allowfullscreen></iframe>
-      <div class="live-music-info">
-        <span>หากเพลงไม่เริ่ม ให้กด ▶ บนเครื่องเล่น</span>
-        <a href="https://www.youtube.com/watch?v=0_tJ56tW0PI" target="_blank" rel="noopener noreferrer">เปิดบน YouTube</a>
-      </div>
-    </aside>
-    <button id="liveMusicRestore" class="live-music-restore" type="button" hidden>♫ เปิดเพลง YouTube</button>
-    <aside id="liveSoundPrompt" class="live-sound-prompt" aria-label="เปิดเสียงการแข่งขัน" hidden>
-      <span class="live-sound-prompt-text">🔊 เสียง LIVE พร้อมเล่น · แตะเพื่อเปิดเสียง</span>
-      <button type="button" id="liveSoundEnable">เปิดเสียง</button>
-    </aside>
     <!-- Shared full-screen news interruption; works in Check-in and Sport modes. -->
     <section id="raceBreaking" class="race-breaking" hidden aria-label="ประกาศผลการแข่งขันล่าสุด" role="region">
       <div class="race-breaking-atmosphere" aria-hidden="true">
@@ -184,27 +161,6 @@ header('Cache-Control: no-store, private');
       </footer>
     </section>
   </main>
-  <script>
-    // A closed embedded player MUST stop playback; do not keep hidden audio running.
-    (function(){
-      const dock=document.getElementById('liveMusicDock');
-      const iframe=document.getElementById('liveMusicVideo');
-      const stop=document.getElementById('liveMusicStop');
-      const restore=document.getElementById('liveMusicRestore');
-      if(!dock||!iframe||!stop||!restore)return;
-      const url=iframe.getAttribute('src');
-      stop.addEventListener('click',function(){
-        iframe.removeAttribute('src');
-        dock.hidden=true;
-        restore.hidden=false;
-      });
-      restore.addEventListener('click',function(){
-        dock.hidden=false;
-        restore.hidden=true;
-        iframe.setAttribute('src',url);
-      });
-    })();
-  </script>
-  <script defer src="./live.js?v=20261119-autosound-volume"></script>
+  <script defer src="./live.js?v=20261119-restored-live-audio"></script>
 </body>
 </html>

@@ -15,12 +15,12 @@ assert(js.includes("document.addEventListener('pointerdown',unlockSoundOnFirstGe
   'Browser-restricted sound should unlock with the first user gesture');
 assert(js.includes("gain.gain.exponentialRampToValueAtTime(.20"),
   'The original fanfare has a stronger but controlled sound level');
-assert(html.includes('id="liveSoundEnable"')&&html.includes('id="liveSoundPrompt"'),
-  'The blocked-autoplay fallback must offer a one-tap sound control');
-assert(html.includes('live.js?v=20261119-autosound-volume'),
+assert(!html.includes('id="liveSoundPrompt"')&&!html.includes('id="liveMusicDock"'),
+  'The viewer requests no overlay on the live scoreboard');
+assert(html.includes('live.js?v=20261119-restored-live-audio'),
   'The browser must reload the new sound implementation');
-assert(css.includes('.live-sound-prompt[hidden]{display:none!important}'),
-  'Audio prompt must not obscure results after sound is enabled');
+assert(!css.includes('.live-sound-prompt')&&!css.includes('.live-music-dock'),
+  'No sound prompt or music video should obscure results');
 const section=js.slice(js.indexOf('  function updateNewsAudioButtons(){'),
   js.indexOf('  function render(payload){'));
 assert(section.includes('async function enableBreakingSound('));
@@ -35,15 +35,16 @@ Audio.prototype.createOscillator=function(){
     start(){contextState.starts++},stop(){}};
 };
 Audio.prototype.createGain=function(){
-  return {gain:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}};
+  return {gain:{setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}};
 };
 const ctx={
   newsSoundEnabled:false,newsAudio:null,newsSoundDesired:true,soundWelcomePlayed:false,
   soundButtons:['newsSoundLive','newsSoundSport','newsSoundBreaking'],
-  el:id=>id==='liveSoundPrompt'?prompt:(buttons[id]??={
+  el:id=>(buttons[id]??={
     setAttribute(name,value){this[name]=value},textContent:'',title:''
   }),
   window:{AudioContext:Audio},
+  setInterval:()=>1,clearInterval:()=>{},
   saveNewsSoundPreference(enabled){ctx.saved=enabled},
   console
 };
@@ -58,6 +59,6 @@ vm.runInContext(section+'\nthis.enableSound=enableBreakingSound;this.toggle=togg
   ctx.toggle();
   assert.equal(ctx.newsSoundEnabled,false,'Viewer can mute at any time');
   assert.equal(ctx.saved,false,'Mute preference must persist');
-  assert.equal(prompt.hidden,true,'Explicit mute should not show sound prompt');
-  console.log('PASS LIVE auto sound, audible jingle, high gain, gesture fallback and mute');
+  assert.equal(prompt.hidden,true,'No extra sound prompt appears on mute');
+  console.log('PASS LIVE original background loop, audible fanfare, gesture fallback and mute');
 })().catch(e=>{console.error(e);process.exitCode=1});

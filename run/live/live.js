@@ -559,6 +559,8 @@
   // Sound is on by default for the public screen. Respect an explicit user mute.
   const SOUND_PREFERENCE='bang1-live-sound-enabled';
   let newsSoundDesired=true,soundWelcomePlayed=false;
+  // Original instrumental ambience, synthesized locally; no YouTube extraction.
+  let ambientTimer=null,ambientNextAt=0,ambientChordIndex=0;
   try{newsSoundDesired=window.localStorage.getItem(SOUND_PREFERENCE)!=='off';}catch(error){}
   const soundButtons=['newsSoundLive','newsSoundSport','newsSoundBreaking'];
   function saveNewsSoundPreference(enabled){
@@ -771,8 +773,48 @@
       button.title=newsSoundEnabled?'ปิดเสียงประกาศผลการแข่งขัน':
         'แตะเพื่อเปิดเสียงประกาศผลการแข่งขัน';
     });
-    const prompt=el('liveSoundPrompt');
-    if(prompt)prompt.hidden=!newsSoundDesired||newsSoundEnabled;
+    // Only existing sound switches control audio. No overlay on the broadcast.
+  }
+
+  // Original low-volume ambient instrumental loop for the scoreboard.
+  // No external player, copyrighted recording, remote audio request or overlay.
+  function scheduleAmbientMusic(){
+    if(!newsSoundEnabled||!newsAudio||newsAudio.state!=='running')return;
+    const ctx=newsAudio;
+    const progressions=[
+      [196.00,246.94,293.66],
+      [174.61,220.00,261.63],
+      [146.83,196.00,246.94],
+      [164.81,220.00,293.66]
+    ];
+    ambientNextAt=Math.max(ambientNextAt,ctx.currentTime+.08);
+    while(ambientNextAt<ctx.currentTime+9){
+      const start=ambientNextAt;
+      const notes=progressions[ambientChordIndex%progressions.length];
+      ambientChordIndex++;
+      for(const frequency of notes){
+        const osc=ctx.createOscillator(),gain=ctx.createGain();
+        osc.type='sine';
+        osc.frequency.setValueAtTime(frequency,start);
+        gain.gain.setValueAtTime(.0001,start);
+        gain.gain.linearRampToValueAtTime(.022,start+.65);
+        gain.gain.setValueAtTime(.022,start+2.4);
+        gain.gain.exponentialRampToValueAtTime(.0001,start+3.95);
+        osc.connect(gain);gain.connect(ctx.destination);
+        osc.start(start);osc.stop(start+4.01);
+      }
+      ambientNextAt+=4;
+    }
+  }
+  function startAmbientMusic(){
+    if(ambientTimer!==null)return;
+    ambientNextAt=0;
+    scheduleAmbientMusic();
+    ambientTimer=setInterval(scheduleAmbientMusic,2500);
+  }
+  function stopAmbientMusic(){
+    if(ambientTimer!==null)clearInterval(ambientTimer);
+    ambientTimer=null;ambientNextAt=0;
   }
   function playNewsFanfare(finalRound){
     if(!newsSoundEnabled||!newsAudio||newsAudio.state!=='running')return;
@@ -810,6 +852,7 @@
       if(!newsSoundDesired||newsAudio.state!=='running')return false;
       newsSoundEnabled=true;
       updateNewsAudioButtons();
+      startAmbientMusic();
       if(playWelcome&&!soundWelcomePlayed){
         soundWelcomePlayed=true;
         playNewsFanfare(false);
@@ -825,6 +868,7 @@
     if(newsSoundEnabled){
       newsSoundDesired=false;
       newsSoundEnabled=false;
+      stopAmbientMusic();
       saveNewsSoundPreference(false);
       updateNewsAudioButtons();
       if(newsAudio?.state==='running')void newsAudio.suspend().catch(()=>{});
@@ -838,7 +882,7 @@
   function unlockSoundOnFirstGesture(event){
     if(!newsSoundDesired||newsSoundEnabled)return;
     // Sound buttons manage their own on/off state.
-    if(event?.target?.closest?.('.news-sound-toggle,#liveSoundEnable'))return;
+    if(event?.target?.closest?.('.news-sound-toggle'))return;
     void enableBreakingSound(true);
   }
 
@@ -879,25 +923,31 @@
     if(requestBusy||document.visibilityState==='hidden')return;
     requestBusy=true;
     try{
-      const response=await fetch('../api.php?action=live_state',{
-        cache:'no-store',credentials:'same-origin'
-      });
-      if(!response.ok)throw Error('HTTP '+response.status);
-      const payload=await response.json();
-      if(payload.success!==true)throw Error(payload.message||'เชื่อมต่อไม่สำเร็จ');
-      render(payload);
+      const controller=new AbortController();
+      const requestTimeout=setTimeout(()=>controller.abort(),12000);
+      try{
+        const response=await fetch('../api.php?action=live_state',{
+          cache:'no-store',credentials:'same-origin',signal:controller.signal
+        });
+        if(!response.ok)throw Error('HTTP '+response.status);
+        const payload=await response.json();
+        if(payload.success!==true)throw Error(payload.message||'เชื่อมต่อไม่สำเร็จ');
+        render(payload);
+      }finally{
+        clearTimeout(requestTimeout);
+      }
     }catch(error){
+      console.warn('LIVE state request failed; retaining last good display',error);
       el('connection').className='';
-      el('connection').textContent='● การเชื่อมต่อขัดข้อง';
-      el('lastRefresh').textContent=loaded?'แสดงข้อมูลล่าสุด':'โหลดข้อมูลไม่ได้';
+      el('connection').textContent='● กำลังลองเชื่อมต่อใหม่';
+      el('lastRefresh').textContent=loaded?'แสดงข้อมูลล่าสุด':'เชื่อมต่อข้อมูลไม่ได้';
+      if(!loaded){
+        el('schoolGrid').innerHTML='<div class="loading" role="status">'+
+          'ยังโหลดข้อมูล LIVE ไม่สำเร็จ · ระบบกำลังเชื่อมต่อใหม่โดยอัตโนมัติ</div>';
+      }
     }finally{requestBusy=false;}
   }
   soundButtons.forEach(id=>el(id)?.addEventListener('click',toggleBreakingSound));
-  el('liveSoundEnable')?.addEventListener('click',()=>{
-    newsSoundDesired=true;
-    saveNewsSoundPreference(true);
-    void enableBreakingSound(true);
-  });
   document.addEventListener('pointerdown',unlockSoundOnFirstGesture,{capture:true,passive:true});
   document.addEventListener('keydown',event=>{
     if(event.key==='Enter'||event.key===' ')unlockSoundOnFirstGesture(event);
