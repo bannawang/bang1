@@ -6496,6 +6496,10 @@ function loadSchedule(silent = false) {
           '<span class="schedule-explainer">เรียงตามลำดับรายการแข่งขันที่ตั้งไว้ · หากไม่มีลำดับจึงอิงเวลาสมัคร · ฮีท/ลู่ชั่วคราวยังไม่เป็นทางการ</span>';
       }
       rows = Array.isArray(rows) ? rows : [];
+      // Preserve ALL official program slots for the printed programme.
+      // Filtering the on-screen list must NEVER erase event IDs (e.g. 37–38)
+      // from the independent print snapshot.
+      scheduleEventsData = rows.slice();
 
       // Actual registrations are authoritative even when the original plan
       // listed zero participating teams.
@@ -6507,14 +6511,12 @@ function loadSchedule(silent = false) {
       });
 
       if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="6">ยังไม่มีข้อมูลรายการวิ่ง</td></tr>';
-        scheduleEventsData = [];
+        tbody.innerHTML = '<tr><td colspan="6">ยังไม่มีข้อมูลรายการวิ่งที่มีผู้สมัคร</td></tr>';
         return;
       }
 
-      // เก็บข้อมูลตามลำดับที่ได้จากชีต (หลังกรองแล้ว)
-      scheduleEventsData = rows.slice();
-
+      // The on-screen table stays concise; the print snapshot above retains
+      // all configured program events, including those without entrants.
       rows.forEach(function (r, idx) {
         const tr    = document.createElement('tr');
         const rowId = 'sch_' + (idx + 1);
@@ -6903,13 +6905,10 @@ function printScheduleProgram() {
     return;
   }
 
-  // Show active entrants even where original fixture rows had zero planned teams.
-  const events = scheduleEventsData.filter(ev => {
-    if (bang1RegisteredSchoolCount(ev) > 0) return true;
-    const planned = ev.TeamCount;
-    return planned === null || planned === undefined ||
-      planned === '' || Number(planned) !== 0;
-  });
+  // Print the authoritative program in its original order.
+  // A zero-team competition still keeps its EventID and receives a clear
+  // "no registration" body. Never silently skip a configured event.
+  const events = scheduleEventsData.slice();
 
   if (!events.length) {
     alert('ยังไม่มีรายการแข่งขันที่ต้องพิมพ์');

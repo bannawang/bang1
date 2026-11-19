@@ -56,6 +56,26 @@ assert(html.includes("teamTextInRow.startsWith('รอผลการแข่�
   'Waiting row remains protected against expanding incomplete finals');
 assert(html.includes('EventID: eventId')&&html.includes('QualificationSavedHeats: ev.QualificationSavedHeats'),
   'Print receives official event IDs and actual qualifier progress');
+const sourceRows=[36,37,38,39].map((n)=>({
+  EventID:n,index:n,EventName:'วิ่งผลัด 4X50 เมตร (8 ปี ชาย)',
+  TeamCount:n===37||n===38?0:5,RegisteredTeams:n===37||n===38?0:5,
+  Remark:'คัดเลือก',Stage:'คัดเลือก',Heat:n%2?'1':'2',
+  SlotStatus:n===37||n===38?'not_drawn':'drawn',schools:[]
+}));
+const preserved=ctx.render(sourceRows);
+for(const id of [36,37,38,39]){
+  assert(preserved.includes('<strong>'+id+'</strong>'),
+    'Configured program event '+id+' must remain printable even without enrolled schools');
+}
+assert(preserved.includes('ยังไม่มีใบสมัครในระบบสำหรับรายการหรือฮีทนี้'),
+  'Empty races must show a factual empty-state instead of invented entrants');
+const loadFn=section('function loadSchedule(silent = false) {','function onScheduleRowClick(');
+const snapshot=loadFn.indexOf('scheduleEventsData = rows.slice();');
+const filtered=loadFn.indexOf('rows = rows.filter(function (r) {');
+assert(snapshot>=0&&filtered>=0&&snapshot<filtered,
+  'Keep the entire official program for printing BEFORE filtering the on-screen table');
+assert(!html.includes('const events = scheduleEventsData.filter(ev =>'),
+  'No zero-team filtering may discard official event numbers during print');
 const malicious={...waiting,EventName:'<img src=x onerror=alert(1)>'};
 const sanitized=ctx.render([malicious]);
 assert(!sanitized.includes('<img src=x onerror=alert(1)>'),
